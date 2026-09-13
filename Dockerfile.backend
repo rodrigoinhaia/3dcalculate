@@ -1,0 +1,14 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copia os manifests do backend a partir da raiz do repositório
+COPY backend/package*.json ./
+RUN npm ci --omit=dev
+
+# Copia todo o código-fonte do backend
+COPY backend/ ./
+
+EXPOSE 3001
+
+CMD ["node", "src/server.js"]

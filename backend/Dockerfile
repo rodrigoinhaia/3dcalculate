@@ -2,9 +2,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Instala apenas dependências de produção para economizar memória e espaço
-COPY package.json ./
-RUN npm install --omit=dev
+# Instala dependências aproveitando cache de camadas
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY . .
 
