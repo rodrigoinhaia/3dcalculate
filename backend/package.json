@@ -1,0 +1,19 @@
+{
+  "name": "3dcalculate-backend",
+  "version": "1.0.0",
+  "description": "Backend ultra-leve Fastify + PostgreSQL para 3D Calc & MakerPro",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@fastify/jwt": "^10.2.2",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "pg": "^8.13.3"
+  }
+}

@@ -1,34 +1,47 @@
 <div align="center">
 
 # 🖨️ 3D Calc & MakerPro
-### Sistema Profissional de Precificação 3D, Catálogo de Peças & Gestão de Consignados
+### Sistema Profissional de Precificação 3D, Catálogo & Gestão de Consignados
+#### ⚡ Arquitetura Offline-First • IndexedDB • Service Worker • Fastify • PostgreSQL
 
 ![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black)
-![Vite](https://img.shields.io/badge/Vite-6-646cff?style=for-the-badge&logo=vite&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)
-![EasyPanel](https://img.shields.io/badge/EasyPanel-Compatible-00D084?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![Fastify](https://img.shields.io/badge/Fastify-Ultra--Light-000000?style=for-the-badge&logo=fastify&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16_Alpine-336791?style=for-the-badge&logo=postgresql&logoColor=white)
+![Dexie](https://img.shields.io/badge/IndexedDB-Dexie.js-5B21B6?style=for-the-badge)
+![PWA](https://img.shields.io/badge/PWA-Offline_First-5A0FC8?style=for-the-badge)
+![Docker](https://img.shields.io/badge/Docker-Compose_Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)
 
 <p align="center">
-  <b>Precifique suas impressões 3D com precisão cirúrgica, catalogue suas peças e controle estoques e comissões em pontos de venda parceiros.</b>
+  <b>Precifique suas impressões 3D com precisão cirúrgica, opere 100% offline no navegador e sincronize em segundo plano com seu banco de dados PostgreSQL.</b>
 </p>
 
-[Funcionalidades](#-funcionalidades-principais) • [Demonstração Visual](#-demonstração-visual) • [Deploy no EasyPanel](#-deploy-no-easypanel-sua-vps) • [Como Rodar Local](#-como-rodar-localmente) • [Tecnologias](#-tecnologias)
+[Funcionalidades](#-funcionalidades-principais) • [Arquitetura Offline-First](#-arquitetura-offline-first) • [Como Rodar com Docker](#-como-rodar-com-docker-compose) • [Como Rodar Local](#-como-rodar-localmente) • [Demonstração Visual](#-demonstração-visual)
 
 </div>
 
 ---
 
-## 💡 O Problema que este Projeto Resolve
+## ⚡ Arquitetura Offline-First & Sincronização
 
-Muitos makers e estúdios de impressão 3D precificam peças no "olhômetro" ou multiplicando apenas o peso do filamento, esquecendo fatores críticos que corroem o lucro:
-- Custo real de **energia elétrica** (kWh por tempo de máquina ligado).
-- **Desgaste da impressora**, bicos e manutenções preventivas.
-- **Mão de obra** gasta fatiando, preparando a mesa e removendo suportes.
-- **Margem de risco** para impressões que falham.
-- **Comissões de lojas consignadas**: vender em lojas físicas e cafeterias sem calcular o repasse líquido exato pode gerar prejuízo silencioso.
+O **3D Calc & MakerPro** foi projetado para oficinas e ambientes de produção onde a conexão pode ser instável:
 
-O **3D Calc & MakerPro** unifica toda essa inteligência em uma interface moderna, rápida e responsiva.
+1. **Operação 100% Local (IndexedDB com Dexie.js):**
+   - O aplicativo funciona com ou sem internet.
+   - Os dados ficam gravados com ultra performance no IndexedDB do navegador.
+   - Permite uso imediato no **Modo Local (Visitante)** sem exigir login prévio.
+
+2. **Service Worker com Cache do App Shell:**
+   - O app carrega instantaneamente mesmo em modo avião.
+   - Escuta eventos de reconexão para disparar sincronizações em segundo plano.
+
+3. **Fila de Sincronização Outbox & Resolução de Conflitos:**
+   - Cada criação, edição ou exclusão (soft delete) gera uma mutação na fila local.
+   - Quando a conexão é detectada e o usuário está autenticado, as mutações são enviadas em lote (`POST /api/sync`) para o PostgreSQL.
+
+4. **Backend Ultra-Leve em Fastify + PostgreSQL Alpine:**
+   - Consumo de memória mínimo: API em Fastify consome apenas **~35MB de RAM**.
+   - PostgreSQL 16 Alpine otimizado consome **~40MB de RAM**.
+   - Total da stack em produção: **menos de 100MB de RAM**!
 
 ---
 
@@ -61,94 +74,67 @@ O **3D Calc & MakerPro** unifica toda essa inteligência em uma interface modern
 - **Baixa Rápida de Vendas:** Registre vendas informadas pelos parceiros com 1 clique.
 - **Extrato & Romaneio:** Emissão de romaneio de entrega com campos para assinaturas do fabricante e lojista.
 
-### 4. ⚙️ Gestão de Recursos & Backup
-- Cadastro de múltiplas **impressoras** (potência em W, valor de compra, vida útil).
-- Estoque de **carretéis de filamento** (marcas, materiais PLA/PETG/ABS/TPU e cores).
-- **Exportação/Importação JSON:** Backup completo com um clique para nunca perder dados.
+### 4. 👤 Autenticação & Gestão Multi-Tenant
+- Criação de conta e login com segurança JWT + bcrypt.
+- Sessão persistida localmente no navegador (não desloga ao ficar offline).
+- Indicador visual em tempo real no Header:
+  - 🟢 **Sincronizado** (Nuvem atualizada)
+  - 🟡 **Sincronizando...** (Enviando lote)
+  - ⚪ **Offline (N alterações salvas)**
+  - 👤 **Modo Local**
 
 ---
 
-## 📸 Demonstração Visual
+## 🐳 Como Rodar com Docker Compose (Recomendado)
 
-### 1. Calculadora de Custos e Formação de Preço
-Cálculo detalhado com divisão visual de filamento, energia, depreciação, mão de obra e lucro:
-<p align="center">
-  <img src="./docs/images/01-calculadora-custos.png" alt="Calculadora de Custos 3D" width="900" />
-</p>
-
-### 2. Catálogo de Peças Criadas
-Organização visual dos modelos com especificações técnicas e ajuste rápido de estoque:
-<p align="center">
-  <img src="./docs/images/02-catalogo-produtos.png" alt="Catálogo de Peças" width="900" />
-</p>
-
-### 3. Simulador de Consignação & Comissões
-Simule a divisão financeira entre o preço de prateleira, comissão da loja e seu lucro líquido:
-<p align="center">
-  <img src="./docs/images/03-simulador-consignacao.png" alt="Simulador de Consignação" width="900" />
-</p>
-
-### 4. Romaneio e Extrato de Prestação de Contas
-Documento formal para impressão e assinatura de entrega em lojas parceiras:
-<p align="center">
-  <img src="./docs/images/04-extrato-romaneio.png" alt="Romaneio de Consignação" width="900" />
-</p>
-
----
-
-## 🐳 Deploy no EasyPanel (Sua VPS)
-
-O repositório já inclui um **`Dockerfile` multi-stage com Nginx Alpine** super otimizado (consome menos de 25MB de RAM).
-
-### Passo a Passo:
-
-1. Faça push deste repositório para o seu Git (GitHub / GitLab / Gitea).
-2. No painel do seu **EasyPanel**:
-   - Vá no seu Projeto e clique em **+ Project Service** ➔ **App**.
-   - Dê um nome (ex: `calculadora-3d`).
-3. Em **Source**:
-   - Conecte ao seu repositório Git e selecione o branch (`main`).
-4. Em **Build**:
-   - Selecione o método **Dockerfile** (ele detectará o arquivo na raiz).
-5. Em **Ports**:
-   - Porta: **`80`**.
-6. Em **Domains**:
-   - Informe seu subdomínio (ex: `3d.seudominio.com`). O EasyPanel emite o certificado SSL (HTTPS) automaticamente.
-7. Clique em **Deploy**.
-
-> 💡 **Dica Mobile:** Ao acessar pelo celular no navegador (Chrome ou Safari), toque em *"Adicionar à tela de início"* para utilizar o sistema como um app nativo em tela cheia!
-
----
-
-## 💻 Como Rodar Localmente
-
-### Pré-requisitos
-- Node.js 18+ instalado
+O projeto conta com uma orquestração completa e otimizada (PostgreSQL Alpine + API Fastify + Frontend Nginx com proxy reverso):
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/seu-usuario/3dcalculate.git
-cd 3dcalculate
-
-# 2. Instale as dependências
-npm install
-
-# 3. Inicie o servidor de desenvolvimento
-npm run dev
+# Iniciar todos os serviços em segundo plano
+docker compose up -d
 ```
 
+Serviços iniciados:
+- **Frontend SPA**: [http://localhost](http://localhost) (Porta 80)
+- **API Fastify**: [http://localhost:3001](http://localhost:3001)
+- **PostgreSQL**: Porta 5432 (Banco: `3dcalculate`)
+
+---
+
+## 💻 Como Rodar Localmente (Desenvolvimento)
+
+### Pré-requisitos
+- Node.js 20+ instalado
+- PostgreSQL rodando localmente (ou via Docker)
+
+### 1. Iniciar o Frontend:
+```bash
+# Na raiz do projeto:
+npm install
+npm run dev
+```
 Acesse em: [http://localhost:5173](http://localhost:5173)
+
+### 2. Iniciar o Backend:
+```bash
+cd backend
+npm install
+npm run dev
+```
+O backend rodará em: [http://localhost:3001](http://localhost:3001)
 
 ---
 
 ## 🛠 Tecnologias
 
 - **Frontend:** [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
-- **Estilização:** CSS Moderno (Design System Dark Industrial, Glassmorphism, Print Stylesheets)
+- **Armazenamento Offline:** [Dexie.js](https://dexie.org/) (IndexedDB)
+- **Service Worker:** Shell Caching e Background Sync nativos
+- **Backend API:** [Fastify 5](https://fastify.dev/) (Ultra-leve, ~35MB RAM)
+- **Banco de Dados:** [PostgreSQL 16 Alpine](https://www.postgresql.org/) com driver nativo `pg`
+- **Autenticação:** JWT (`@fastify/jwt`) e senhas com `bcryptjs`
 - **Ícones:** [Lucide React](https://lucide.dev/)
-- **Tipografia:** Google Fonts (Plus Jakarta Sans & JetBrains Mono)
-- **Servidor de Produção:** Nginx Alpine com compressão Gzip
-- **Deploy:** Docker & EasyPanel
+- **Estilização:** CSS Vanilla Puro (Design System Dark Industrial, Glassmorphism)
 
 ---
 

@@ -1,6 +1,8 @@
 /**
- * Camada de Persistência Local (LocalStorage) e Dados Iniciais
+ * Camada de Persistência Local-First (IndexedDB via Dexie + Espelho LocalStorage + Sync Outbox)
  */
+import { localDb, migrateFromLocalStorageIfEmpty } from './indexedDb';
+import { syncManager } from './syncManager';
 
 const STORAGE_KEYS = {
   PRINTERS: '3dcalc_printers_v1',
@@ -189,7 +191,7 @@ const DEFAULT_DISPATCHES = [
   {
     id: 'disp-1',
     partnerId: 'part-1',
-    productId: 'prod-3', // Dragão Articulado
+    productId: 'prod-3',
     quantitySent: 5,
     quantitySold: 2,
     unitRetailPrice: 55.00,
@@ -200,7 +202,7 @@ const DEFAULT_DISPATCHES = [
   {
     id: 'disp-2',
     partnerId: 'part-2',
-    productId: 'prod-1', // Vaso Geométrico
+    productId: 'prod-1',
     quantitySent: 4,
     quantitySold: 1,
     unitRetailPrice: 65.00,
@@ -210,7 +212,7 @@ const DEFAULT_DISPATCHES = [
   }
 ];
 
-// Helper seguro para localStorage
+// Helper síncrono para leitura imediata
 function getItem(key, fallback) {
   try {
     const item = localStorage.getItem(key);
@@ -225,38 +227,81 @@ function getItem(key, fallback) {
   }
 }
 
-function setItem(key, data) {
+// Gravação com espelhamento no Dexie e enfileiramento de sincronização
+function setItemAndSync(key, table, data, defaults) {
   try {
+    const prev = getItem(key, defaults);
     localStorage.setItem(key, JSON.stringify(data));
     window.dispatchEvent(new Event('3dcalc_storage_updated'));
+
+    // Operação assíncrona no IndexedDB e SyncManager
+    (async () => {
+      const now = new Date().toISOString();
+
+      if (table === 'settings') {
+        await localDb.settings.put({ id: 'global_settings', ...data, updatedAt: now });
+        await syncManager.enqueue('settings', 'UPSERT', 'global_settings', data);
+        return;
+      }
+
+      // Detecta novos/atualizados e removidos
+      const currentMap = new Map(data.map(item => [item.id, item]));
+      const prevMap = new Map(prev.map(item => [item.id, item]));
+
+      // Itens novos ou alterados
+      for (const item of data) {
+        await localDb[table].put({ ...item, updatedAt: now, isDeleted: false });
+        await syncManager.enqueue(table, 'UPSERT', item.id, item);
+      }
+
+      // Itens deletados
+      for (const [id] of prevMap) {
+        if (!currentMap.has(id)) {
+          await localDb[table].delete(id);
+          await syncManager.enqueue(table, 'DELETE', id, null);
+        }
+      }
+    })().catch(err => console.error('[Storage] Erro ao sincronizar IndexedDB:', err));
   } catch (e) {
     console.error(`Erro ao gravar ${key}:`, e);
   }
 }
 
+// Inicializa migração do localStorage para IndexedDB
+if (typeof window !== 'undefined') {
+  migrateFromLocalStorageIfEmpty({
+    printers: DEFAULT_PRINTERS,
+    filaments: DEFAULT_FILAMENTS,
+    products: DEFAULT_PRODUCTS,
+    partners: DEFAULT_PARTNERS,
+    dispatches: DEFAULT_DISPATCHES,
+    settings: DEFAULT_SETTINGS,
+  });
+}
+
 export const db = {
   getPrinters: () => getItem(STORAGE_KEYS.PRINTERS, DEFAULT_PRINTERS),
-  savePrinters: (printers) => setItem(STORAGE_KEYS.PRINTERS, printers),
+  savePrinters: (printers) => setItemAndSync(STORAGE_KEYS.PRINTERS, 'printers', printers, DEFAULT_PRINTERS),
 
   getFilaments: () => getItem(STORAGE_KEYS.FILAMENTS, DEFAULT_FILAMENTS),
-  saveFilaments: (filaments) => setItem(STORAGE_KEYS.FILAMENTS, filaments),
+  saveFilaments: (filaments) => setItemAndSync(STORAGE_KEYS.FILAMENTS, 'filaments', filaments, DEFAULT_FILAMENTS),
 
   getSettings: () => getItem(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS),
-  saveSettings: (settings) => setItem(STORAGE_KEYS.SETTINGS, settings),
+  saveSettings: (settings) => setItemAndSync(STORAGE_KEYS.SETTINGS, 'settings', settings, DEFAULT_SETTINGS),
 
   getProducts: () => getItem(STORAGE_KEYS.PRODUCTS, DEFAULT_PRODUCTS),
-  saveProducts: (products) => setItem(STORAGE_KEYS.PRODUCTS, products),
+  saveProducts: (products) => setItemAndSync(STORAGE_KEYS.PRODUCTS, 'products', products, DEFAULT_PRODUCTS),
 
   getPartners: () => getItem(STORAGE_KEYS.PARTNERS, DEFAULT_PARTNERS),
-  savePartners: (partners) => setItem(STORAGE_KEYS.PARTNERS, partners),
+  savePartners: (partners) => setItemAndSync(STORAGE_KEYS.PARTNERS, 'partners', partners, DEFAULT_PARTNERS),
 
   getDispatches: () => getItem(STORAGE_KEYS.DISPATCHES, DEFAULT_DISPATCHES),
-  saveDispatches: (dispatches) => setItem(STORAGE_KEYS.DISPATCHES, dispatches),
+  saveDispatches: (dispatches) => setItemAndSync(STORAGE_KEYS.DISPATCHES, 'dispatches', dispatches, DEFAULT_DISPATCHES),
 
   // Exportar todos os dados para JSON
   exportBackup: () => {
     const backup = {
-      version: '1.0',
+      version: '2.0',
       exportedAt: new Date().toISOString(),
       printers: db.getPrinters(),
       filaments: db.getFilaments(),
@@ -292,11 +337,11 @@ export const db = {
 
   // Restaurar dados originais de demonstração
   resetToDefaults: () => {
-    setItem(STORAGE_KEYS.PRINTERS, DEFAULT_PRINTERS);
-    setItem(STORAGE_KEYS.FILAMENTS, DEFAULT_FILAMENTS);
-    setItem(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
-    setItem(STORAGE_KEYS.PRODUCTS, DEFAULT_PRODUCTS);
-    setItem(STORAGE_KEYS.PARTNERS, DEFAULT_PARTNERS);
-    setItem(STORAGE_KEYS.DISPATCHES, DEFAULT_DISPATCHES);
+    db.savePrinters(DEFAULT_PRINTERS);
+    db.saveFilaments(DEFAULT_FILAMENTS);
+    db.saveSettings(DEFAULT_SETTINGS);
+    db.saveProducts(DEFAULT_PRODUCTS);
+    db.savePartners(DEFAULT_PARTNERS);
+    db.saveDispatches(DEFAULT_DISPATCHES);
   }
 };

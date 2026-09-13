@@ -6,8 +6,10 @@ import { PrintCostCalculator } from './components/Calculator/PrintCostCalculator
 import { ProductCatalog } from './components/Catalog/ProductCatalog';
 import { ConsignmentManager } from './components/Consignment/ConsignmentManager';
 import { PrintersFilamentsSettings } from './components/Settings/PrintersFilamentsSettings';
+import { AuthProvider } from './context/AuthContext';
+import { AuthModal } from './components/Auth/AuthModal';
 
-export function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState('calculator');
 
   // Estado dos dados locais
@@ -231,7 +233,18 @@ export function App() {
           />
         )}
       </main>
+
+      {/* Modal de Autenticação / Cadastro */}
+      <AuthModal />
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
