@@ -26,11 +26,16 @@ RUN rm -rf /etc/nginx/conf.d/default.conf
 # Copia nossa configuração otimizada de SPA e compressão
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Copia script de inicialização para injetar BACKEND_URL dinamicamente via .env
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Copia os arquivos compilados do estágio de build
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Porta padrão de escuta para o EasyPanel
 EXPOSE 80
 
-# Inicia o Nginx em primeiro plano
+# Inicia com o entrypoint dinâmico
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
