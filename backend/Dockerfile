@@ -2,11 +2,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Instala dependências aproveitando cache de camadas
-COPY package.json package-lock.json ./
+# Copia os arquivos do backend a partir da raiz do repositório (padrão do EasyPanel)
+COPY backend/package*.json ./
 RUN npm ci --omit=dev
 
-COPY . .
+COPY backend/ ./
 
 EXPOSE 3001
 

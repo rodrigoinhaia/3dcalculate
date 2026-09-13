@@ -30,8 +30,8 @@ services:
   # 2. Backend Ultra-Leve Fastify
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: 3dcalc-backend
     restart: unless-stopped
     depends_on:
