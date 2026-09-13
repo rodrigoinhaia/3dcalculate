@@ -22,44 +22,56 @@ export const calculatePrintCost = (params) => {
     markupPercent = 100,
   } = params;
 
+  const numWeight = Number(weightGrams) || 0;
+  const numSpoolPrice = Number(spoolPrice) || 0;
+  const numSpoolWeight = Number(spoolWeightGrams) || 1000;
+  const numHours = Number(printHours) || 0;
+  const numMinutes = Number(printMinutes) || 0;
+  const numWatts = Number(printerWatts) || 0;
+  const numKwhRate = Number(energyKwhRate) || 0;
+  const numPrinterPrice = Number(printerPrice) || 0;
+  const numLifespan = Number(lifespanHours) || 3000;
+  const numMaintenance = Number(maintenancePerHour) || 0;
+  const numPrep = Number(prepMinutes) || 0;
+  const numPost = Number(postMinutes) || 0;
+  const numLaborRate = Number(laborHourlyRate) || 0;
+  const extras = Number(extrasCost) || 0;
+  const failureRate = Number(failureMarginPercent) || 0;
+  const markup = Number(markupPercent) || 0;
+
   // Tempo total de impressão em horas
-  const totalPrintHours = Number(printHours) + (Number(printMinutes) / 60);
+  const totalPrintHours = numHours + (numMinutes / 60);
 
   // 1. Custo de Filamento
-  const costPerGram = Number(spoolWeightGrams) > 0 ? (Number(spoolPrice) / Number(spoolWeightGrams)) : 0.1;
-  const filamentCost = Number(weightGrams) * costPerGram;
+  const costPerGram = numSpoolWeight > 0 ? (numSpoolPrice / numSpoolWeight) : 0.1;
+  const filamentCost = numWeight * costPerGram;
 
   // 2. Custo de Energia Elétrica
   // Consumo (kWh) = (Watts / 1000) * Horas
-  const kwhConsumed = (Number(printerWatts) / 1000) * totalPrintHours;
-  const energyCost = kwhConsumed * Number(energyKwhRate);
+  const kwhConsumed = (numWatts / 1000) * totalPrintHours;
+  const energyCost = kwhConsumed * numKwhRate;
 
   // 3. Desgaste da Máquina & Depreciação
-  const depreciationPerHour = Number(lifespanHours) > 0 ? (Number(printerPrice) / Number(lifespanHours)) : 0;
+  const depreciationPerHour = numLifespan > 0 ? (numPrinterPrice / numLifespan) : 0;
   const depreciationCost = depreciationPerHour * totalPrintHours;
-  const maintenanceCost = Number(maintenancePerHour) * totalPrintHours;
+  const maintenanceCost = numMaintenance * totalPrintHours;
   const machineTotalCost = depreciationCost + maintenanceCost;
 
   // 4. Mão de Obra do Operador
-  const totalLaborMinutes = Number(prepMinutes) + Number(postMinutes);
+  const totalLaborMinutes = numPrep + numPost;
   const laborHours = totalLaborMinutes / 60;
-  const laborCost = laborHours * Number(laborHourlyRate);
-
-  // 5. Custos Extras / Embalagem
-  const extras = Number(extrasCost) || 0;
+  const laborCost = laborHours * numLaborRate;
 
   // Subtotal base
   const subtotalBase = filamentCost + energyCost + machineTotalCost + laborCost + extras;
 
   // 6. Margem de Risco / Falhas de Impressão (% de segurança)
-  const failureRate = Number(failureMarginPercent) || 0;
   const failureCost = subtotalBase * (failureRate / 100);
 
   // Custo Total de Fabricação
   const totalCost = subtotalBase + failureCost;
 
   // 7. Precificação de Venda Direta
-  const markup = Number(markupPercent) || 0;
   const profitAmount = totalCost * (markup / 100);
   const suggestedSalePrice = totalCost + profitAmount;
 

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { calculatePrintCost } from '../../utils/calculations';
 import { formatCurrency, formatWeight, formatTime, formatPercent } from '../../utils/formatters';
+import { ImageUploader } from '../Common/ImageUploader';
 
 export const PrintCostCalculator = ({ 
   printers = [], 
@@ -200,7 +201,8 @@ export const PrintCostCalculator = ({
                     step="1"
                     className="form-input form-input-mono" 
                     value={weightGrams} 
-                    onChange={(e) => setWeightGrams(Math.max(0, Number(e.target.value)))}
+                    onChange={(e) => setWeightGrams(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (weightGrams === '') setWeightGrams(0); }}
                   />
                   <span className="affix">gramas</span>
                 </div>
@@ -216,7 +218,8 @@ export const PrintCostCalculator = ({
                     step="0.5"
                     className="form-input form-input-mono" 
                     value={customSpoolPrice} 
-                    onChange={(e) => setCustomSpoolPrice(Number(e.target.value))}
+                    onChange={(e) => setCustomSpoolPrice(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (customSpoolPrice === '') setCustomSpoolPrice(0); }}
                   />
                 </div>
               </div>
@@ -230,7 +233,8 @@ export const PrintCostCalculator = ({
                     step="50"
                     className="form-input form-input-mono" 
                     value={customSpoolWeight} 
-                    onChange={(e) => setCustomSpoolWeight(Number(e.target.value))}
+                    onChange={(e) => setCustomSpoolWeight(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (customSpoolWeight === '') setCustomSpoolWeight(1000); }}
                   />
                   <span className="affix">g</span>
                 </div>
@@ -256,7 +260,8 @@ export const PrintCostCalculator = ({
                     min="0" 
                     className="form-input form-input-mono" 
                     value={printHours} 
-                    onChange={(e) => setPrintHours(Math.max(0, parseInt(e.target.value) || 0))}
+                    onChange={(e) => setPrintHours(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10)))}
+                    onBlur={() => { if (printHours === '') setPrintHours(0); }}
                   />
                   <span className="affix">horas</span>
                 </div>
@@ -271,7 +276,8 @@ export const PrintCostCalculator = ({
                     max="59"
                     className="form-input form-input-mono" 
                     value={printMinutes} 
-                    onChange={(e) => setPrintMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                    onChange={(e) => setPrintMinutes(e.target.value === '' ? '' : Math.min(59, Math.max(0, parseInt(e.target.value, 10))))}
+                    onBlur={() => { if (printMinutes === '') setPrintMinutes(0); }}
                   />
                   <span className="affix">min</span>
                 </div>
@@ -290,7 +296,8 @@ export const PrintCostCalculator = ({
                     step="0.05"
                     className="form-input form-input-mono" 
                     value={energyKwhRate} 
-                    onChange={(e) => setEnergyKwhRate(Number(e.target.value))}
+                    onChange={(e) => setEnergyKwhRate(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (energyKwhRate === '') setEnergyKwhRate(0.85); }}
                   />
                   <span className="affix">/kWh</span>
                 </div>
@@ -325,7 +332,8 @@ export const PrintCostCalculator = ({
                     min="0" 
                     className="form-input form-input-mono" 
                     value={prepMinutes} 
-                    onChange={(e) => setPrepMinutes(Number(e.target.value))}
+                    onChange={(e) => setPrepMinutes(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (prepMinutes === '') setPrepMinutes(0); }}
                   />
                   <span className="affix">min</span>
                 </div>
@@ -342,7 +350,8 @@ export const PrintCostCalculator = ({
                     min="0" 
                     className="form-input form-input-mono" 
                     value={postMinutes} 
-                    onChange={(e) => setPostMinutes(Number(e.target.value))}
+                    onChange={(e) => setPostMinutes(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (postMinutes === '') setPostMinutes(0); }}
                   />
                   <span className="affix">min</span>
                 </div>
@@ -361,7 +370,8 @@ export const PrintCostCalculator = ({
                     step="5"
                     className="form-input form-input-mono" 
                     value={laborHourlyRate} 
-                    onChange={(e) => setLaborHourlyRate(Number(e.target.value))}
+                    onChange={(e) => setLaborHourlyRate(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (laborHourlyRate === '') setLaborHourlyRate(0); }}
                   />
                 </div>
               </div>
@@ -380,7 +390,8 @@ export const PrintCostCalculator = ({
                     step="0.5"
                     className="form-input form-input-mono" 
                     value={extrasCost} 
-                    onChange={(e) => setExtrasCost(Number(e.target.value))}
+                    onChange={(e) => setExtrasCost(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (extrasCost === '') setExtrasCost(0); }}
                   />
                 </div>
               </div>
@@ -644,22 +655,18 @@ export const PrintCostCalculator = ({
                       min="0" 
                       className="form-input form-input-mono" 
                       value={newProductStock} 
-                      onChange={(e) => setNewProductStock(e.target.value)}
+                      onChange={(e) => setNewProductStock(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10)))}
+                      onBlur={() => { if (newProductStock === '') setNewProductStock(1); }}
                     />
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">URL da Foto do Produto (Opcional)</label>
-                  <input 
-                    type="url" 
-                    placeholder="https://..." 
-                    className="form-input" 
-                    value={newProductImageUrl} 
-                    onChange={(e) => setNewProductImageUrl(e.target.value)}
-                  />
-                  <span className="form-label-hint">Caso deixe vazio, uma imagem ilustrativa moderna será associada.</span>
-                </div>
+                <ImageUploader 
+                  value={newProductImageUrl} 
+                  onChange={setNewProductImageUrl} 
+                  label="Foto da Peça / Produto" 
+                  hint="Envie uma foto do seu dispositivo ou use um link externo. Funciona 100% offline."
+                />
 
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-subtle)', marginTop: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>

@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { formatCurrency, formatWeight, formatTime } from '../../utils/formatters';
+import { ImageUploader } from '../Common/ImageUploader';
 
 export const ProductCatalog = ({ 
   products = [], 
@@ -126,15 +127,15 @@ export const ProductCatalog = ({
       title: formTitle.trim(),
       category: formCategory,
       description: formDescription,
-      imageUrl: formImageUrl.trim() || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&auto=format&fit=crop&q=80',
-      weightGrams: Number(formWeight),
-      printHours: Number(formHours),
-      printMinutes: Number(formMinutes),
+      imageUrl: (formImageUrl || '').trim() || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&auto=format&fit=crop&q=80',
+      weightGrams: Number(formWeight) || 0,
+      printHours: Number(formHours) || 0,
+      printMinutes: Number(formMinutes) || 0,
       filamentName: formFilamentName,
-      cost: Number(formCost),
-      suggestedPrice: Number(formPrice),
-      directSalePrice: Number(formPrice),
-      stock: Number(formStock),
+      cost: Number(formCost) || 0,
+      suggestedPrice: Number(formPrice) || 0,
+      directSalePrice: Number(formPrice) || 0,
+      stock: Number(formStock) || 0,
       createdAt: new Date().toISOString(),
     };
 
@@ -400,7 +401,8 @@ export const ProductCatalog = ({
                       max={Math.max(1, selectedProductForDispatch.stock || 10)}
                       className="form-input form-input-mono" 
                       value={dispatchQuantity} 
-                      onChange={(e) => setDispatchQuantity(e.target.value)}
+                      onChange={(e) => setDispatchQuantity(e.target.value === '' ? '' : e.target.value)}
+                      onBlur={() => { if (dispatchQuantity === '') setDispatchQuantity(1); }}
                       required
                     />
                   </div>
@@ -415,7 +417,8 @@ export const ProductCatalog = ({
                         min="1" 
                         className="form-input form-input-mono" 
                         value={dispatchRetailPrice} 
-                        onChange={(e) => setDispatchRetailPrice(e.target.value)}
+                        onChange={(e) => setDispatchRetailPrice(e.target.value === '' ? '' : e.target.value)}
+                        onBlur={() => { if (dispatchRetailPrice === '') setDispatchRetailPrice(0); }}
                         required
                       />
                     </div>
@@ -546,16 +549,12 @@ export const ProductCatalog = ({
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">URL da Imagem</label>
-                  <input 
-                    type="url" 
-                    className="form-input" 
-                    placeholder="https://images.unsplash.com/..." 
-                    value={formImageUrl} 
-                    onChange={(e) => setFormImageUrl(e.target.value)}
-                  />
-                </div>
+                <ImageUploader 
+                  value={formImageUrl} 
+                  onChange={setFormImageUrl} 
+                  label="Foto da Peça / Produto" 
+                  hint="Envie uma foto do seu dispositivo ou use um link externo. A imagem é otimizada e funciona offline."
+                />
 
                 <div className="grid-3">
                   <div className="form-group">
@@ -565,7 +564,8 @@ export const ProductCatalog = ({
                       min="1" 
                       className="form-input form-input-mono" 
                       value={formWeight} 
-                      onChange={(e) => setFormWeight(e.target.value)}
+                      onChange={(e) => setFormWeight(e.target.value === '' ? '' : e.target.value)}
+                      onBlur={() => { if (formWeight === '') setFormWeight(0); }}
                     />
                   </div>
 
@@ -576,7 +576,8 @@ export const ProductCatalog = ({
                       min="0" 
                       className="form-input form-input-mono" 
                       value={formHours} 
-                      onChange={(e) => setFormHours(e.target.value)}
+                      onChange={(e) => setFormHours(e.target.value === '' ? '' : e.target.value)}
+                      onBlur={() => { if (formHours === '') setFormHours(0); }}
                     />
                   </div>
 
@@ -600,7 +601,8 @@ export const ProductCatalog = ({
                       step="0.1" 
                       className="form-input form-input-mono" 
                       value={formCost} 
-                      onChange={(e) => setFormCost(e.target.value)}
+                      onChange={(e) => setFormCost(e.target.value === '' ? '' : e.target.value)}
+                      onBlur={() => { if (formCost === '') setFormCost(0); }}
                     />
                   </div>
 
@@ -611,7 +613,8 @@ export const ProductCatalog = ({
                       step="0.5" 
                       className="form-input form-input-mono" 
                       value={formPrice} 
-                      onChange={(e) => setFormPrice(e.target.value)}
+                      onChange={(e) => setFormPrice(e.target.value === '' ? '' : e.target.value)}
+                      onBlur={() => { if (formPrice === '') setFormPrice(0); }}
                     />
                   </div>
 
@@ -622,7 +625,8 @@ export const ProductCatalog = ({
                       min="0" 
                       className="form-input form-input-mono" 
                       value={formStock} 
-                      onChange={(e) => setFormStock(e.target.value)}
+                      onChange={(e) => setFormStock(e.target.value === '' ? '' : e.target.value)}
+                      onBlur={() => { if (formStock === '') setFormStock(0); }}
                     />
                   </div>
                 </div>

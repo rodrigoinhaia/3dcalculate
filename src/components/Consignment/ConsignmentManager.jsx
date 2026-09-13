@@ -436,7 +436,8 @@ export const ConsignmentManager = ({
                     step="1"
                     className="form-input form-input-mono" 
                     value={simRetailPrice} 
-                    onChange={(e) => setSimRetailPrice(Number(e.target.value))}
+                    onChange={(e) => setSimRetailPrice(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (simRetailPrice === '') setSimRetailPrice(0); }}
                   />
                 </div>
                 <span className="form-label-hint">Valor na etiqueta da loja</span>
@@ -450,11 +451,12 @@ export const ConsignmentManager = ({
                   <input 
                     type="number" 
                     min="0" 
-                    max="60"
+                    max="60" 
                     step="1"
                     className="form-input form-input-mono" 
                     value={simCommissionPercent} 
-                    onChange={(e) => setSimCommissionPercent(Number(e.target.value))}
+                    onChange={(e) => setSimCommissionPercent(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (simCommissionPercent === '') setSimCommissionPercent(0); }}
                   />
                   <span className="affix">%</span>
                 </div>
@@ -471,7 +473,8 @@ export const ConsignmentManager = ({
                     step="0.5"
                     className="form-input form-input-mono" 
                     value={simUnitCost} 
-                    onChange={(e) => setSimUnitCost(Number(e.target.value))}
+                    onChange={(e) => setSimUnitCost(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    onBlur={() => { if (simUnitCost === '') setSimUnitCost(0); }}
                   />
                 </div>
                 <span className="form-label-hint">Filamento, energia, desgaste, mão de obra</span>
@@ -672,7 +675,8 @@ export const ConsignmentManager = ({
                     max={selectedDispatchForSale.remainingStock} 
                     className="form-input form-input-mono" 
                     value={saleQuantity} 
-                    onChange={(e) => setSaleQuantity(e.target.value)}
+                    onChange={(e) => setSaleQuantity(e.target.value === '' ? '' : e.target.value)}
+                    onBlur={() => { if (saleQuantity === '') setSaleQuantity(1); }}
                     required
                     autoFocus
                   />
@@ -779,7 +783,8 @@ export const ConsignmentManager = ({
                         required 
                         className="form-input form-input-mono" 
                         value={partnerCommission} 
-                        onChange={(e) => setPartnerCommission(e.target.value)}
+                        onChange={(e) => setPartnerCommission(e.target.value === '' ? '' : e.target.value)}
+                        onBlur={() => { if (partnerCommission === '') setPartnerCommission(25); }}
                       />
                       <span className="affix">%</span>
                     </div>

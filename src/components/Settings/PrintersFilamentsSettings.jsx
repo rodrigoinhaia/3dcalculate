@@ -51,7 +51,17 @@ export const PrintersFilamentsSettings = ({
 
   const handleSettingsSubmit = (e) => {
     e.preventDefault();
-    onSaveSettings(localSettings);
+    const sanitized = {
+      ...localSettings,
+      energyKwhRate: Number(localSettings.energyKwhRate) || 0.85,
+      laborHourlyRate: Number(localSettings.laborHourlyRate) || 25,
+      prepMinutesDefault: Number(localSettings.prepMinutesDefault) || 10,
+      postMinutesDefault: Number(localSettings.postMinutesDefault) || 15,
+      failureMarginDefault: Number(localSettings.failureMarginDefault) || 10,
+      markupDefault: Number(localSettings.markupDefault) || 100,
+    };
+    onSaveSettings(sanitized);
+    setLocalSettings(sanitized);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -136,8 +146,9 @@ export const PrintersFilamentsSettings = ({
                     step="0.01" 
                     min="0.1"
                     className="form-input form-input-mono"
-                    value={localSettings.energyKwhRate || 0.85}
-                    onChange={(e) => setLocalSettings({ ...localSettings, energyKwhRate: Number(e.target.value) })}
+                    value={localSettings.energyKwhRate ?? ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, energyKwhRate: e.target.value })}
+                    onBlur={() => { if (localSettings.energyKwhRate === '') setLocalSettings(prev => ({ ...prev, energyKwhRate: 0.85 })); }}
                   />
                 </div>
               </div>
@@ -154,8 +165,9 @@ export const PrintersFilamentsSettings = ({
                     step="1" 
                     min="0"
                     className="form-input form-input-mono"
-                    value={localSettings.laborHourlyRate || 25.00}
-                    onChange={(e) => setLocalSettings({ ...localSettings, laborHourlyRate: Number(e.target.value) })}
+                    value={localSettings.laborHourlyRate ?? ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, laborHourlyRate: e.target.value })}
+                    onBlur={() => { if (localSettings.laborHourlyRate === '') setLocalSettings(prev => ({ ...prev, laborHourlyRate: 25.00 })); }}
                   />
                 </div>
               </div>
@@ -169,11 +181,12 @@ export const PrintersFilamentsSettings = ({
                   <input 
                     type="number" 
                     step="1" 
-                    min="0"
+                    min="0" 
                     max="50"
                     className="form-input form-input-mono"
-                    value={localSettings.failureMarginDefault || 10}
-                    onChange={(e) => setLocalSettings({ ...localSettings, failureMarginDefault: Number(e.target.value) })}
+                    value={localSettings.failureMarginDefault ?? ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, failureMarginDefault: e.target.value })}
+                    onBlur={() => { if (localSettings.failureMarginDefault === '') setLocalSettings(prev => ({ ...prev, failureMarginDefault: 10 })); }}
                   />
                   <span className="affix">%</span>
                 </div>
@@ -188,8 +201,9 @@ export const PrintersFilamentsSettings = ({
                     type="number" 
                     min="0"
                     className="form-input form-input-mono"
-                    value={localSettings.prepMinutesDefault || 10}
-                    onChange={(e) => setLocalSettings({ ...localSettings, prepMinutesDefault: Number(e.target.value) })}
+                    value={localSettings.prepMinutesDefault ?? ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, prepMinutesDefault: e.target.value })}
+                    onBlur={() => { if (localSettings.prepMinutesDefault === '') setLocalSettings(prev => ({ ...prev, prepMinutesDefault: 10 })); }}
                   />
                   <span className="affix">min</span>
                 </div>
@@ -202,8 +216,9 @@ export const PrintersFilamentsSettings = ({
                     type="number" 
                     min="0"
                     className="form-input form-input-mono"
-                    value={localSettings.postMinutesDefault || 15}
-                    onChange={(e) => setLocalSettings({ ...localSettings, postMinutesDefault: Number(e.target.value) })}
+                    value={localSettings.postMinutesDefault ?? ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, postMinutesDefault: e.target.value })}
+                    onBlur={() => { if (localSettings.postMinutesDefault === '') setLocalSettings(prev => ({ ...prev, postMinutesDefault: 15 })); }}
                   />
                   <span className="affix">min</span>
                 </div>
@@ -217,8 +232,9 @@ export const PrintersFilamentsSettings = ({
                     min="10"
                     max="500"
                     className="form-input form-input-mono"
-                    value={localSettings.markupDefault || 100}
-                    onChange={(e) => setLocalSettings({ ...localSettings, markupDefault: Number(e.target.value) })}
+                    value={localSettings.markupDefault ?? ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, markupDefault: e.target.value })}
+                    onBlur={() => { if (localSettings.markupDefault === '') setLocalSettings(prev => ({ ...prev, markupDefault: 100 })); }}
                   />
                   <span className="affix">%</span>
                 </div>

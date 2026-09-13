@@ -7,6 +7,7 @@ import { authRoutes } from './routes/auth.js';
 import { syncRoutes } from './routes/sync.js';
 
 const fastify = Fastify({
+  bodyLimit: 10 * 1024 * 1024, // 10MB para upload/sync de imagens otimizadas
   logger: process.env.NODE_ENV !== 'production' ? { level: 'info' } : false,
 });
 
