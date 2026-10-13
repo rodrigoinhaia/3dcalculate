@@ -267,7 +267,9 @@ function setItemAndSync(key, table, data, defaults) {
       }
 
       syncManager.batching = false;
-      syncManager.sync();
+      if (currentMap.size !== prevMap.size || [...currentMap.keys()].some((id) => JSON.stringify(currentMap.get(id)) !== JSON.stringify(prevMap.get(id)))) {
+        syncManager.sync();
+      }
     })().catch(err => {
       syncManager.batching = false;
       console.error('[Storage] Erro ao sincronizar IndexedDB:', err);
