@@ -215,18 +215,19 @@ export function StoreApp() {
 
         {screen === 'pdv' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 16 }}>
-            <div className="grid-2">
+            <div className="store-product-grid">
               {items.length === 0 && <p>Nenhum produto disponível para venda.</p>}
               {items.map((item) => (
                 <button
                   key={item.dispatchId}
                   type="button"
-                  className="glass-card"
-                  style={{ padding: 16, textAlign: 'left' }}
+                  className="glass-card store-product-card"
                   onClick={() => addToCart(item)}
                 >
-                  {item.imageUrl && <img src={item.imageUrl} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} />}
-                  <strong>{item.title}</strong>
+                  {item.imageUrl
+                    ? <img className="store-product-photo" src={item.imageUrl} alt={item.title} />
+                    : <div className="store-product-photo" />}
+                  <strong style={{ display: 'block', minHeight: '2.4em' }}>{item.title}</strong>
                   <div>{formatCurrency(item.shelfPrice)}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{item.available} em estoque</div>
                 </button>
