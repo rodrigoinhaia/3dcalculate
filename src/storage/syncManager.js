@@ -147,7 +147,7 @@ class SyncManager {
   }
 
   async applyServerUpdates(updates) {
-    const { printers, filaments, settings, products, partners, dispatches } = updates;
+    const { printers, filaments, settings, products, partners, dispatches, partnerSales } = updates;
 
     await localDb.transaction('rw', [localDb.printers, localDb.filaments, localDb.products, localDb.partners, localDb.dispatches, localDb.settings], async () => {
       if (printers && printers.length > 0) {
@@ -205,6 +205,14 @@ class SyncManager {
     localStorage.setItem('3dcalc_dispatches_v1', JSON.stringify(allDispatches));
     if (currentSettings) {
       localStorage.setItem('3dcalc_settings_v1', JSON.stringify(currentSettings));
+    }
+
+    if (Array.isArray(partnerSales) && partnerSales.length > 0) {
+      const previous = readJson('3dcalc_partner_sales_v1', []);
+      const merged = new Map(previous.map((sale) => [sale.id, sale]));
+      for (const sale of partnerSales) merged.set(sale.id, sale);
+      const list = [...merged.values()].sort((a, b) => String(b.soldAt).localeCompare(String(a.soldAt)));
+      localStorage.setItem('3dcalc_partner_sales_v1', JSON.stringify(list));
     }
   }
 }

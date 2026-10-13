@@ -119,6 +119,9 @@ export async function authRoutes(fastify, options) {
       } catch (err) {
         return reply.code(401).send({ error: 'Sessão expirada ou não autorizada.' });
       }
+      if (request.user?.role === 'partner') {
+        return reply.code(403).send({ error: 'Acesso exclusivo do vendedor.' });
+      }
     }
   }, async (request, reply) => {
     try {

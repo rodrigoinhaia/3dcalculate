@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { pool } from '../db/pool.js';
 
 export async function syncRoutes(fastify, options) {
@@ -7,6 +8,9 @@ export async function syncRoutes(fastify, options) {
         await request.jwtVerify();
       } catch (err) {
         return reply.code(401).send({ error: 'Não autorizado. Faça login para sincronizar.' });
+      }
+      if (request.user?.role === 'partner') {
+        return reply.code(403).send({ error: 'A loja parceira não sincroniza o catálogo do vendedor.' });
       }
     }
   }, async (request, reply) => {
@@ -58,7 +62,13 @@ export async function syncRoutes(fastify, options) {
       );
 
       const partnersRes = await client.query(
-        `SELECT id, name, contact_person as "contactPerson", phone, commission_percent as "commissionPercent", address, notes, updated_at as "updatedAt", is_deleted as "isDeleted" FROM partners WHERE user_id = $1 ${filterClause}`,
+        `SELECT id, name, contact_person as "contactPerson", phone, commission_percent as "commissionPercent", address, notes, login_email as "loginEmail", updated_at as "updatedAt", is_deleted as "isDeleted" FROM partners WHERE user_id = $1 ${filterClause}`,
+        params
+      );
+
+      const salesFilter = lastSyncedAt ? 'AND sold_at > $2' : '';
+      const salesRes = await client.query(
+        `SELECT id, partner_id as "partnerId", product_id as "productId", dispatch_id as "dispatchId", quantity, unit_price as "unitPrice", payment_method as "paymentMethod", sold_at as "soldAt" FROM partner_sales WHERE user_id = $1 ${salesFilter} ORDER BY sold_at DESC`,
         params
       );
 
@@ -77,6 +87,7 @@ export async function syncRoutes(fastify, options) {
           products: productsRes.rows,
           partners: partnersRes.rows,
           dispatches: dispatchesRes.rows,
+          partnerSales: salesRes.rows,
         }
       });
     } catch (err) {
@@ -199,8 +210,8 @@ async function applyMutation(client, userId, table, action, data, id) {
   if (table === 'partners') {
     if (action === 'UPSERT' && data) {
       await client.query(`
-        INSERT INTO partners (id, user_id, name, contact_person, phone, commission_percent, address, notes, updated_at, is_deleted)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), FALSE)
+        INSERT INTO partners (id, user_id, name, contact_person, phone, commission_percent, address, notes, login_email, password_hash, updated_at, is_deleted)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), FALSE)
         ON CONFLICT (id, user_id) DO UPDATE SET
           name = EXCLUDED.name,
           contact_person = EXCLUDED.contact_person,
@@ -208,9 +219,15 @@ async function applyMutation(client, userId, table, action, data, id) {
           commission_percent = EXCLUDED.commission_percent,
           address = EXCLUDED.address,
           notes = EXCLUDED.notes,
+          login_email = EXCLUDED.login_email,
+          password_hash = CASE WHEN EXCLUDED.password_hash IS NULL THEN partners.password_hash ELSE EXCLUDED.password_hash END,
           updated_at = NOW(),
           is_deleted = FALSE
-      `, [text(data.id, 100), userId, text(data.name, 255) || 'Parceiro', text(data.contactPerson, 255), text(data.phone, 50), num(data.commissionPercent), data.address ?? null, data.notes ?? null]);
+      `, [
+        text(data.id, 100), userId, text(data.name, 255) || 'Parceiro', text(data.contactPerson, 255), text(data.phone, 50), num(data.commissionPercent), data.address ?? null, data.notes ?? null,
+        data.loginEmail ? String(data.loginEmail).toLowerCase().trim() : null,
+        data.loginPassword ? await bcrypt.hash(String(data.loginPassword), 10) : null,
+      ]);
     } else if (action === 'DELETE' && id) {
       await client.query('UPDATE partners SET is_deleted = TRUE, updated_at = NOW() WHERE id = $1 AND user_id = $2', [id, userId]);
     }
@@ -226,7 +243,7 @@ async function applyMutation(client, userId, table, action, data, id) {
           partner_id = EXCLUDED.partner_id,
           product_id = EXCLUDED.product_id,
           quantity_sent = EXCLUDED.quantity_sent,
-          quantity_sold = EXCLUDED.quantity_sold,
+          quantity_sold = GREATEST(dispatches.quantity_sold, EXCLUDED.quantity_sold),
           unit_retail_price = EXCLUDED.unit_retail_price,
           commission_percent = EXCLUDED.commission_percent,
           date_sent = EXCLUDED.date_sent,
