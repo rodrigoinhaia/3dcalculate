@@ -16,7 +16,7 @@ import {
   UserCheck,
   Calendar
 } from 'lucide-react';
-import { calculateConsignment, splitShelfPrice } from '../../utils/calculations';
+import { calculateConsignment } from '../../utils/calculations';
 import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
 
 function storeShelfPrice(basePrice, storePrice) {
@@ -95,7 +95,7 @@ export const ConsignmentManager = ({
       const remaining = Math.max(0, sent - sold);
       const price = Number(d.unitRetailPrice) || 0;
       const comm = Number(d.commissionPercent) || 0;
-      const split = splitShelfPrice(price, comm, d.commissionMode);
+      const split = calculateConsignment(price, comm, 0, d.commissionMode);
 
       totalItemsActive += remaining;
       totalItemsSold += sold;
@@ -125,13 +125,14 @@ export const ConsignmentManager = ({
         const remaining = Math.max(0, (Number(d.quantitySent) || 0) - (Number(d.quantitySold) || 0));
         const price = Number(d.unitRetailPrice) || 0;
         const commPct = Number(d.commissionPercent) || 25;
-        const split = splitShelfPrice(price, commPct, d.commissionMode);
+        const split = calculateConsignment(price, commPct, 0, d.commissionMode);
         const storeCutPerUnit = split.storeCommissionAmount;
         const makerPayoutPerUnit = split.makerPayout;
         const totalPendingPayout = (Number(d.quantitySold) || 0) * makerPayoutPerUnit;
         const storePrice = partnerPrices.find((item) => item.partnerId === d.partnerId && item.productId === d.productId);
-        const storeShelf = storeShelfPrice(price, storePrice);
-        const storeExtra = storeShelf == null ? 0 : Math.max(0, storeShelf - price);
+        const chargedByStore = storeShelfPrice(price, storePrice);
+        const sellerPrice = chargedByStore ?? split.shelfPrice;
+        const storeExtra = Math.max(0, sellerPrice - split.shelfPrice);
 
         return {
           ...d,
@@ -143,7 +144,8 @@ export const ConsignmentManager = ({
           remainingStock: remaining,
           storeCutPerUnit,
           makerPayoutPerUnit,
-          storeShelf,
+          sellerPrice,
+          agreedShelf: split.shelfPrice,
           storeExtra,
           totalPendingPayout,
         };
@@ -375,7 +377,8 @@ export const ConsignmentManager = ({
                       <th style={{ textAlign: 'center' }}>Enviadas</th>
                       <th style={{ textAlign: 'center' }}>Vendidas</th>
                       <th style={{ textAlign: 'center' }}>Em Loja</th>
-                      <th>Preço Vitrine</th>
+                      <th>Meu preço</th>
+                      <th>Preço do vendedor</th>
                       <th>Comissão Loja</th>
                       <th>Seu Repasse Unit.</th>
                       <th>Total a Receber</th>
@@ -414,9 +417,17 @@ export const ConsignmentManager = ({
                         </td>
                         <td className="text-mono" style={{ fontWeight: 600 }}>
                           {formatCurrency(disp.unitRetailPrice)}
+                        </td>
+                        <td className="text-mono" style={{ fontWeight: 600 }}>
+                          {formatCurrency(disp.sellerPrice)}
+                          {disp.commissionMode === 'added' && (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              Comissão por cima do seu preço
+                            </div>
+                          )}
                           {disp.storeExtra > 0 && (
                             <div style={{ fontSize: '0.72rem', color: 'var(--amber-warn, #f59e0b)', fontWeight: 600 }}>
-                              Loja cobra {formatCurrency(disp.storeShelf)} (+{formatCurrency(disp.storeExtra)})
+                              +{formatCurrency(disp.storeExtra)} da loja
                             </div>
                           )}
                         </td>
