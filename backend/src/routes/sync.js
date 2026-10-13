@@ -72,6 +72,12 @@ export async function syncRoutes(fastify, options) {
         params
       );
 
+      const pricesFilter = lastSyncedAt ? 'AND updated_at > $2' : '';
+      const pricesRes = await client.query(
+        `SELECT partner_id as "partnerId", product_id as "productId", price_mode as "priceMode", markup_percent as "markupPercent", markup_amount as "markupAmount", updated_at as "updatedAt" FROM partner_prices WHERE user_id = $1 ${pricesFilter}`,
+        params
+      );
+
       const dispatchesRes = await client.query(
         `SELECT id, partner_id as "partnerId", product_id as "productId", quantity_sent as "quantitySent", quantity_sold as "quantitySold", unit_retail_price as "unitRetailPrice", commission_percent as "commissionPercent", commission_mode as "commissionMode", date_sent as "dateSent", notes, updated_at as "updatedAt", is_deleted as "isDeleted" FROM dispatches WHERE user_id = $1 ${filterClause}`,
         params
@@ -88,6 +94,7 @@ export async function syncRoutes(fastify, options) {
           partners: partnersRes.rows,
           dispatches: dispatchesRes.rows,
           partnerSales: salesRes.rows,
+          partnerPrices: pricesRes.rows,
         }
       });
     } catch (err) {
