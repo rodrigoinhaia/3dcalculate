@@ -237,10 +237,13 @@ function setItemAndSync(key, table, data, defaults) {
     // Operação assíncrona no IndexedDB e SyncManager
     (async () => {
       const now = new Date().toISOString();
+      syncManager.batching = true;
 
       if (table === 'settings') {
         await localDb.settings.put({ id: 'global_settings', ...data, updatedAt: now });
         await syncManager.enqueue('settings', 'UPSERT', 'global_settings', data);
+        syncManager.batching = false;
+        syncManager.sync();
         return;
       }
 
@@ -262,7 +265,13 @@ function setItemAndSync(key, table, data, defaults) {
           await syncManager.enqueue(table, 'DELETE', id, null);
         }
       }
-    })().catch(err => console.error('[Storage] Erro ao sincronizar IndexedDB:', err));
+
+      syncManager.batching = false;
+      syncManager.sync();
+    })().catch(err => {
+      syncManager.batching = false;
+      console.error('[Storage] Erro ao sincronizar IndexedDB:', err);
+    });
   } catch (e) {
     console.error(`Erro ao gravar ${key}:`, e);
   }
