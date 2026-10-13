@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { formatCurrency, formatWeight, formatTime } from '../../utils/formatters';
+import { calculateConsignment } from '../../utils/calculations';
 import { ImageUploader } from '../Common/ImageUploader';
 
 export const ProductCatalog = ({ 
@@ -97,6 +98,12 @@ export const ProductCatalog = ({
     if (!selectedProductForDispatch || !dispatchPartnerId) return;
 
     const partner = partners.find(p => p.id === dispatchPartnerId);
+    const quote = calculateConsignment(
+      dispatchRetailPrice,
+      partner?.commissionPercent || 25,
+      0,
+      partner?.commissionMode || 'included',
+    );
 
     onDispatchToPartner({
       id: 'disp-' + Date.now(),
@@ -104,8 +111,9 @@ export const ProductCatalog = ({
       productId: selectedProductForDispatch.id,
       quantitySent: Number(dispatchQuantity),
       quantitySold: 0,
-      unitRetailPrice: Number(dispatchRetailPrice),
+      unitRetailPrice: quote.shelfPrice,
       commissionPercent: partner?.commissionPercent || 25,
+      commissionMode: quote.commissionMode,
       dateSent: new Date().toISOString(),
       notes: dispatchNotes,
     });
@@ -408,7 +416,11 @@ export const ProductCatalog = ({
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Preço Final na Vitrine da Loja</label>
+                    <label className="form-label">
+                      {partners.find(p => p.id === dispatchPartnerId)?.commissionMode === 'added'
+                        ? 'Nosso preço (a comissão entra por cima)'
+                        : 'Preço final na vitrine (comissão dentro do preço)'}
+                    </label>
                     <div className="input-with-affix">
                       <span className="affix affix-prefix">R$</span>
                       <input 
@@ -429,14 +441,16 @@ export const ProductCatalog = ({
                 {(() => {
                   const partner = partners.find(p => p.id === dispatchPartnerId);
                   const commPct = partner?.commissionPercent || 25;
-                  const storeCut = Number(dispatchRetailPrice) * (commPct / 100);
-                  const makerPayout = Number(dispatchRetailPrice) - storeCut;
-                  const netProfit = makerPayout - (selectedProductForDispatch.cost || 0);
+                  const quote = calculateConsignment(dispatchRetailPrice, commPct, selectedProductForDispatch.cost || 0, partner?.commissionMode || 'included');
+                  const storeCut = quote.storeCommissionAmount;
+                  const makerPayout = quote.makerPayout;
+                  const netProfit = quote.netProfit;
 
                   return (
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-subtle)', marginTop: '8px' }}>
                       <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                        Simulação do Acerto por Unidade Vendida:
+                        Simulação do Acerto por Unidade Vendida
+                        {quote.commissionMode === 'added' ? ` · vitrine ${formatCurrency(quote.shelfPrice)}` : ''}
                       </div>
                       <div className="grid-3" style={{ textAlign: 'center' }}>
                         <div>

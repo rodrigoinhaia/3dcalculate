@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Layers, DollarSign, Store, Download, Cloud, CloudOff, RefreshCw, User, LogOut, LogIn } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import { splitShelfPrice } from '../utils/calculations';
 import { useAuth } from '../context/AuthContext';
 import { syncManager } from '../storage/syncManager';
 
@@ -30,9 +31,7 @@ export const Header = ({ products = [], dispatches = [], partners = [], onExport
   // Valor total a receber de produtos vendidos em consignado
   const totalPendingPayout = dispatches.reduce((acc, d) => {
     const sold = Number(d.quantitySold) || 0;
-    const price = Number(d.unitRetailPrice) || 0;
-    const comm = Number(d.commissionPercent) || 0;
-    const payoutPerUnit = price * (1 - comm / 100);
+    const payoutPerUnit = splitShelfPrice(d.unitRetailPrice, d.commissionPercent, d.commissionMode).makerPayout;
     return acc + (sold * payoutPerUnit);
   }, 0);
 
