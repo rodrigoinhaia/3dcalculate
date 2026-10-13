@@ -93,9 +93,13 @@ export const ConsignmentManager = ({
       const sent = Number(d.quantitySent) || 0;
       const sold = Number(d.quantitySold) || 0;
       const remaining = Math.max(0, sent - sold);
+      const partner = partners.find((item) => item.id === d.partnerId);
       const price = Number(d.unitRetailPrice) || 0;
-      const comm = Number(d.commissionPercent) || 0;
-      const split = calculateConsignment(price, comm, 0, d.commissionMode);
+      const comm = Number(partner?.commissionPercent ?? d.commissionPercent) || 0;
+      const commissionMode = partner
+        ? (partner.commissionMode === 'added' ? 'added' : 'included')
+        : (d.commissionMode === 'added' ? 'added' : 'included');
+      const split = calculateConsignment(price, comm, 0, commissionMode);
 
       totalItemsActive += remaining;
       totalItemsSold += sold;
@@ -113,7 +117,7 @@ export const ConsignmentManager = ({
       totalMakerPayout,
       totalStoreCommission,
     };
-  }, [dispatches]);
+  }, [dispatches, partners]);
 
   // Lista de despachos enriquecida com dados do produto e parceiro
   const enrichedDispatches = useMemo(() => {
@@ -124,8 +128,11 @@ export const ConsignmentManager = ({
         const partner = partners.find(p => p.id === d.partnerId);
         const remaining = Math.max(0, (Number(d.quantitySent) || 0) - (Number(d.quantitySold) || 0));
         const price = Number(d.unitRetailPrice) || 0;
-        const commPct = Number(d.commissionPercent) || 25;
-        const split = calculateConsignment(price, commPct, 0, d.commissionMode);
+        const commPct = Number(partner?.commissionPercent ?? d.commissionPercent) || 0;
+        const commissionMode = partner
+          ? (partner.commissionMode === 'added' ? 'added' : 'included')
+          : (d.commissionMode === 'added' ? 'added' : 'included');
+        const split = calculateConsignment(price, commPct, 0, commissionMode);
         const storeCutPerUnit = split.storeCommissionAmount;
         const makerPayoutPerUnit = split.makerPayout;
         const totalPendingPayout = (Number(d.quantitySold) || 0) * makerPayoutPerUnit;
@@ -142,6 +149,8 @@ export const ConsignmentManager = ({
           partnerContact: partner?.contactPerson,
           partnerPhone: partner?.phone,
           remainingStock: remaining,
+          commissionPercent: commPct,
+          commissionMode,
           storeCutPerUnit,
           makerPayoutPerUnit,
           sellerPrice,
