@@ -101,7 +101,7 @@ class SyncManager {
     try {
       const queueItems = await localDb.syncQueue.toArray();
       const lastSyncedAt = localStorage.getItem('3dcalc_last_synced_at') || null;
-      const mutations = latestMutations(queueItems).map(slimMutation);
+      const mutations = latestMutations(queueItems);
 
       const res = await fetch('/api/sync', {
         method: 'POST',
@@ -180,8 +180,14 @@ class SyncManager {
 
       if (products && products.length > 0) {
         for (const prod of products) {
-          if (prod.isDeleted) await localDb.products.delete(prod.id);
-          else await localDb.products.put({ ...prod, syncStatus: 'synced' });
+          if (prod.isDeleted) {
+            await localDb.products.delete(prod.id);
+            continue;
+          }
+          const current = await localDb.products.get(prod.id);
+          const incomingImage = prod.imageUrl || '';
+          const keptImage = incomingImage || current?.imageUrl || '';
+          await localDb.products.put({ ...prod, imageUrl: keptImage, syncStatus: 'synced' });
         }
       }
 
@@ -229,13 +235,6 @@ class SyncManager {
       localStorage.setItem('3dcalc_partner_sales_v1', JSON.stringify(list));
     }
   }
-}
-
-function slimMutation(mutation) {
-  if (mutation.table !== 'products' || !mutation.data?.imageUrl) return mutation;
-  const imageUrl = String(mutation.data.imageUrl);
-  if (!imageUrl.startsWith('data:')) return mutation;
-  return { ...mutation, data: { ...mutation.data, imageUrl: '' } };
 }
 
 function latestMutations(queueItems) {

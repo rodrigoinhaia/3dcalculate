@@ -179,7 +179,10 @@ async function applyMutation(client, userId, table, action, data, id) {
           title = EXCLUDED.title,
           description = EXCLUDED.description,
           category = EXCLUDED.category,
-          image_url = EXCLUDED.image_url,
+          image_url = CASE
+            WHEN EXCLUDED.image_url IS NULL OR EXCLUDED.image_url = '' THEN products.image_url
+            ELSE EXCLUDED.image_url
+          END,
           weight_grams = EXCLUDED.weight_grams,
           print_hours = EXCLUDED.print_hours,
           print_minutes = EXCLUDED.print_minutes,
