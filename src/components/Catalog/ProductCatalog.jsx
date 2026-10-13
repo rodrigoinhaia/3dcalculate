@@ -20,6 +20,23 @@ import { formatCurrency, formatWeight, formatTime } from '../../utils/formatters
 import { calculateConsignment } from '../../utils/calculations';
 import { ImageUploader } from '../Common/ImageUploader';
 
+function sendDispatchNow(dispatch) {
+  const token = localStorage.getItem('3dcalc_auth_token');
+  if (!token || !navigator.onLine) return;
+  const lastSyncedAt = localStorage.getItem('3dcalc_last_synced_at') || null;
+  fetch('/api/sync', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      lastSyncedAt,
+      mutations: [{ table: 'dispatches', action: 'UPSERT', id: dispatch.id, data: dispatch }],
+    }),
+  }).catch(() => {});
+}
+
 export const ProductCatalog = ({ 
   products = [], 
   partners = [], 
@@ -105,7 +122,7 @@ export const ProductCatalog = ({
       partner?.commissionMode || 'included',
     );
 
-    onDispatchToPartner({
+    const dispatch = {
       id: 'disp-' + Date.now(),
       partnerId: dispatchPartnerId,
       productId: selectedProductForDispatch.id,
@@ -116,7 +133,9 @@ export const ProductCatalog = ({
       commissionMode: quote.commissionMode,
       dateSent: new Date().toISOString(),
       notes: dispatchNotes,
-    });
+    };
+    onDispatchToPartner(dispatch);
+    sendDispatchNow(dispatch);
 
     // Diminui o estoque local disponível
     const remainingStock = Math.max(0, (selectedProductForDispatch.stock || 0) - Number(dispatchQuantity));

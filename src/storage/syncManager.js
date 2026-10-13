@@ -156,10 +156,7 @@ class SyncManager {
     } finally {
       this.isSyncing = false;
       const pending = await localDb.syncQueue.count().catch(() => 0);
-      if (pending > 0) {
-        this.rerun = false;
-        this.sync();
-      }
+      if (finished && pending > 0) this.sync();
     }
   }
 
@@ -237,7 +234,7 @@ class SyncManager {
 function slimMutation(mutation) {
   if (mutation.table !== 'products' || !mutation.data?.imageUrl) return mutation;
   const imageUrl = String(mutation.data.imageUrl);
-  if (!imageUrl.startsWith('data:') || imageUrl.length < 120000) return mutation;
+  if (!imageUrl.startsWith('data:')) return mutation;
   return { ...mutation, data: { ...mutation.data, imageUrl: '' } };
 }
 
