@@ -65,7 +65,7 @@ class SyncManager {
 
       // Dispara sincronização se estiver online e autenticado
       const token = localStorage.getItem('3dcalc_auth_token');
-      if (token && navigator.onLine) {
+      if (token && navigator.onLine && !this.batching) {
         this.sync();
       }
     } catch (err) {
@@ -86,8 +86,12 @@ class SyncManager {
       return;
     }
 
-    if (this.isSyncing) return;
+    if (this.isSyncing) {
+      this.rerun = true;
+      return;
+    }
     this.isSyncing = true;
+    this.rerun = false;
     this.notifyStatus('syncing');
 
     let finished = false;
@@ -156,9 +160,10 @@ class SyncManager {
       this.notifyStatus(navigator.onLine ? 'error' : 'offline');
     } finally {
       this.isSyncing = false;
-      if (finished) {
-        const pending = await localDb.syncQueue.count().catch(() => 0);
-        if (pending > 0) this.sync();
+      const pending = await localDb.syncQueue.count().catch(() => 0);
+      if (this.rerun || (finished && pending > 0)) {
+        this.rerun = false;
+        this.sync();
       }
     }
   }
