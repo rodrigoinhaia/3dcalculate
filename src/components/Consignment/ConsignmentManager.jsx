@@ -19,6 +19,18 @@ import {
 import { calculateConsignment, splitShelfPrice } from '../../utils/calculations';
 import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
 
+function storeShelfPrice(basePrice, storePrice) {
+  if (!storePrice || storePrice.priceMode === 'seller') return null;
+  const base = Number(basePrice) || 0;
+  if (storePrice.priceMode === 'amount') {
+    return Math.round((base + (Number(storePrice.markupAmount) || 0)) * 100) / 100;
+  }
+  if (storePrice.priceMode === 'markup') {
+    return Math.round(base * (1 + (Number(storePrice.markupPercent) || 0) / 100) * 100) / 100;
+  }
+  return null;
+}
+
 export const ConsignmentManager = ({ 
   partners = [], 
   products = [], 
@@ -31,6 +43,7 @@ export const ConsignmentManager = ({
   onDeleteDispatch,
   onAddDispatch,
   partnerSales = [],
+  partnerPrices = [],
 }) => {
   // Sub-abas dentro de Consignados
   const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory', 'simulator', 'partners'
@@ -116,6 +129,9 @@ export const ConsignmentManager = ({
         const storeCutPerUnit = split.storeCommissionAmount;
         const makerPayoutPerUnit = split.makerPayout;
         const totalPendingPayout = (Number(d.quantitySold) || 0) * makerPayoutPerUnit;
+        const storePrice = partnerPrices.find((item) => item.partnerId === d.partnerId && item.productId === d.productId);
+        const storeShelf = storeShelfPrice(price, storePrice);
+        const storeExtra = storeShelf == null ? 0 : Math.max(0, storeShelf - price);
 
         return {
           ...d,
@@ -127,10 +143,12 @@ export const ConsignmentManager = ({
           remainingStock: remaining,
           storeCutPerUnit,
           makerPayoutPerUnit,
+          storeShelf,
+          storeExtra,
           totalPendingPayout,
         };
       });
-  }, [dispatches, products, partners, filterPartnerId]);
+  }, [dispatches, products, partners, partnerPrices, filterPartnerId]);
 
   // Registrar venda de peça em consignado
   const handleOpenSaleModal = (disp) => {
@@ -396,6 +414,11 @@ export const ConsignmentManager = ({
                         </td>
                         <td className="text-mono" style={{ fontWeight: 600 }}>
                           {formatCurrency(disp.unitRetailPrice)}
+                          {disp.storeExtra > 0 && (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--amber-warn, #f59e0b)', fontWeight: 600 }}>
+                              Loja cobra {formatCurrency(disp.storeShelf)} (+{formatCurrency(disp.storeExtra)})
+                            </div>
+                          )}
                         </td>
                         <td>
                           <span className="badge badge-amber">

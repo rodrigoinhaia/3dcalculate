@@ -161,7 +161,7 @@ class SyncManager {
   }
 
   async applyServerUpdates(updates) {
-    const { printers, filaments, settings, products, partners, dispatches, partnerSales } = updates;
+    const { printers, filaments, settings, products, partners, dispatches, partnerSales, partnerPrices } = updates;
 
     await localDb.transaction('rw', [localDb.printers, localDb.filaments, localDb.products, localDb.partners, localDb.dispatches, localDb.settings], async () => {
       if (printers && printers.length > 0) {
@@ -225,6 +225,13 @@ class SyncManager {
     localStorage.setItem('3dcalc_dispatches_v1', JSON.stringify(allDispatches));
     if (currentSettings) {
       localStorage.setItem('3dcalc_settings_v1', JSON.stringify(currentSettings));
+    }
+
+    if (Array.isArray(partnerPrices) && partnerPrices.length > 0) {
+      const previous = readJson('3dcalc_partner_prices_v1', []);
+      const merged = new Map(previous.map((price) => [`${price.partnerId}:${price.productId}`, price]));
+      for (const price of partnerPrices) merged.set(`${price.partnerId}:${price.productId}`, price);
+      localStorage.setItem('3dcalc_partner_prices_v1', JSON.stringify([...merged.values()]));
     }
 
     if (Array.isArray(partnerSales) && partnerSales.length > 0) {

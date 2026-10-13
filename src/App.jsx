@@ -24,6 +24,13 @@ function AppContent() {
       return [];
     }
   });
+  const [partnerPrices, setPartnerPrices] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('3dcalc_partner_prices_v1') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [filaments, setFilaments] = useState(() => db.getFilaments());
   const [printers, setPrinters] = useState(() => db.getPrinters());
   const [settings, setSettings] = useState(() => db.getSettings());
@@ -42,8 +49,10 @@ function AppContent() {
       setSettings(db.getSettings());
       try {
         setPartnerSales(JSON.parse(localStorage.getItem('3dcalc_partner_sales_v1') || '[]'));
+        setPartnerPrices(JSON.parse(localStorage.getItem('3dcalc_partner_prices_v1') || '[]'));
       } catch {
         setPartnerSales([]);
+        setPartnerPrices([]);
       }
     };
 
@@ -111,6 +120,15 @@ function AppContent() {
     const updated = partners.map(p => p.id === updatedPartner.id ? updatedPartner : p);
     db.savePartners(updated);
     setPartners(updated);
+    const commissionPercent = Number(updatedPartner.commissionPercent) || 0;
+    const commissionMode = updatedPartner.commissionMode === 'added' ? 'added' : 'included';
+    const updatedDispatches = dispatches.map((dispatch) => (
+      dispatch.partnerId === updatedPartner.id
+        ? { ...dispatch, commissionPercent, commissionMode }
+        : dispatch
+    ));
+    db.saveDispatches(updatedDispatches);
+    setDispatches(updatedDispatches);
   };
 
   const handleDeletePartner = (id) => {
@@ -240,6 +258,7 @@ function AppContent() {
             onDeleteDispatch={handleDeleteDispatch}
             onAddDispatch={handleAddDispatch}
             partnerSales={partnerSales}
+            partnerPrices={partnerPrices}
           />
         )}
 
