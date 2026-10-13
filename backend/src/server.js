@@ -5,6 +5,7 @@ import jwt from '@fastify/jwt';
 import { initDb } from './db/pool.js';
 import { authRoutes } from './routes/auth.js';
 import { syncRoutes } from './routes/sync.js';
+import { partnerRoutes } from './routes/partner.js';
 
 const fastify = Fastify({
   bodyLimit: 10 * 1024 * 1024, // 10MB para upload/sync de imagens otimizadas
@@ -30,6 +31,7 @@ fastify.get('/api/health', async () => {
 // Registrar Rotas da Aplicação
 await fastify.register(authRoutes);
 await fastify.register(syncRoutes);
+await fastify.register(partnerRoutes);
 
 // Inicialização do Servidor
 const start = async () => {

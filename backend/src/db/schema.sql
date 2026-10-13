@@ -118,3 +118,34 @@ CREATE TABLE IF NOT EXISTS dispatches (
     PRIMARY KEY (id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_dispatches_user_sync ON dispatches(user_id, updated_at);
+
+-- Acesso da loja parceira (login separado do vendedor)
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS login_email VARCHAR(255);
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_partners_login_email
+  ON partners (lower(login_email))
+  WHERE login_email IS NOT NULL AND is_deleted = FALSE;
+
+CREATE TABLE IF NOT EXISTS partner_prices (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    partner_id VARCHAR(100) NOT NULL,
+    product_id VARCHAR(100) NOT NULL,
+    price_mode VARCHAR(20) NOT NULL DEFAULT 'seller',
+    markup_percent NUMERIC(6, 2) DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (user_id, partner_id, product_id)
+);
+
+CREATE TABLE IF NOT EXISTS partner_sales (
+    id VARCHAR(100) NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    partner_id VARCHAR(100) NOT NULL,
+    product_id VARCHAR(100) NOT NULL,
+    dispatch_id VARCHAR(100) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    unit_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+    payment_method VARCHAR(30) NOT NULL,
+    sold_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_partner_sales_user_sync ON partner_sales(user_id, sold_at);

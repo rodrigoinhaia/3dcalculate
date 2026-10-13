@@ -8,6 +8,7 @@ import { ConsignmentManager } from './components/Consignment/ConsignmentManager'
 import { PrintersFilamentsSettings } from './components/Settings/PrintersFilamentsSettings';
 import { AuthProvider } from './context/AuthContext';
 import { AuthModal } from './components/Auth/AuthModal';
+import { StoreApp } from './components/Store/StoreApp';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('calculator');
@@ -16,6 +17,13 @@ function AppContent() {
   const [products, setProducts] = useState(() => db.getProducts());
   const [partners, setPartners] = useState(() => db.getPartners());
   const [dispatches, setDispatches] = useState(() => db.getDispatches());
+  const [partnerSales, setPartnerSales] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('3dcalc_partner_sales_v1') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [filaments, setFilaments] = useState(() => db.getFilaments());
   const [printers, setPrinters] = useState(() => db.getPrinters());
   const [settings, setSettings] = useState(() => db.getSettings());
@@ -32,6 +40,11 @@ function AppContent() {
       setFilaments(db.getFilaments());
       setPrinters(db.getPrinters());
       setSettings(db.getSettings());
+      try {
+        setPartnerSales(JSON.parse(localStorage.getItem('3dcalc_partner_sales_v1') || '[]'));
+      } catch {
+        setPartnerSales([]);
+      }
     };
 
     window.addEventListener('3dcalc_storage_updated', handleStorageUpdate);
@@ -214,6 +227,7 @@ function AppContent() {
             onUpdateDispatch={handleUpdateDispatch}
             onDeleteDispatch={handleDeleteDispatch}
             onAddDispatch={handleAddDispatch}
+            partnerSales={partnerSales}
           />
         )}
 
@@ -241,6 +255,9 @@ function AppContent() {
 }
 
 export function App() {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/loja')) {
+    return <StoreApp />;
+  }
   return (
     <AuthProvider>
       <AppContent />

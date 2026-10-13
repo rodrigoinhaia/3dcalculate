@@ -29,7 +29,8 @@ export const ConsignmentManager = ({
   onDeletePartner,
   onUpdateDispatch,
   onDeleteDispatch,
-  onAddDispatch
+  onAddDispatch,
+  partnerSales = [],
 }) => {
   // Sub-abas dentro de Consignados
   const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory', 'simulator', 'partners'
@@ -54,6 +55,11 @@ export const ConsignmentManager = ({
   const [partnerCommission, setPartnerCommission] = useState(25);
   const [partnerAddress, setPartnerAddress] = useState('');
   const [partnerNotes, setPartnerNotes] = useState('');
+  const [partnerLoginEmail, setPartnerLoginEmail] = useState('');
+  const [partnerLoginPassword, setPartnerLoginPassword] = useState('');
+  const [accessPartnerId, setAccessPartnerId] = useState(null);
+  const [accessEmail, setAccessEmail] = useState('');
+  const [accessPassword, setAccessPassword] = useState('');
 
   // Cálculo do Simulador
   const simResult = useMemo(() => {
@@ -158,6 +164,8 @@ export const ConsignmentManager = ({
       commissionPercent: Number(partnerCommission) || 25,
       address: partnerAddress.trim(),
       notes: partnerNotes.trim(),
+      loginEmail: partnerLoginEmail.trim().toLowerCase(),
+      ...(partnerLoginPassword.trim() ? { loginPassword: partnerLoginPassword.trim() } : {}),
       createdAt: new Date().toISOString(),
     };
 
@@ -169,6 +177,8 @@ export const ConsignmentManager = ({
     setPartnerCommission(25);
     setPartnerAddress('');
     setPartnerNotes('');
+    setPartnerLoginEmail('');
+    setPartnerLoginPassword('');
   };
 
   return (
@@ -605,6 +615,54 @@ export const ConsignmentManager = ({
                       <span>{part.phone}</span>
                     </div>
                   )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Store size={14} color="var(--text-muted)" />
+                    <span>
+                      {part.loginEmail
+                        ? <>Acesso: {part.loginEmail}</>
+                        : 'Loja ainda sem login'}
+                      {' · '}
+                      <a href="/loja">/loja</a>
+                    </span>
+                  </div>
+                  {accessPartnerId === part.id ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                      <input className="form-input" type="email" placeholder="E-mail da loja" value={accessEmail} onChange={(e) => setAccessEmail(e.target.value)} />
+                      <input className="form-input" type="password" placeholder="Nova senha (mín. 6)" value={accessPassword} onChange={(e) => setAccessPassword(e.target.value)} />
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          onUpdatePartner({
+                            ...part,
+                            loginEmail: accessEmail.trim().toLowerCase(),
+                            ...(accessPassword.trim() ? { loginPassword: accessPassword.trim() } : {}),
+                          });
+                          setAccessPartnerId(null);
+                          setAccessPassword('');
+                        }}
+                      >
+                        Salvar acesso
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => {
+                        setAccessPartnerId(part.id);
+                        setAccessEmail(part.loginEmail || '');
+                        setAccessPassword('');
+                      }}
+                    >
+                      Definir acesso da loja
+                    </button>
+                  )}
+                  {partnerSales.filter((sale) => sale.partnerId === part.id).slice(0, 5).map((sale) => (
+                    <div key={sale.id} style={{ fontSize: '0.78rem' }}>
+                      Venda {sale.quantity} un · {formatCurrency(sale.unitPrice)} · {sale.paymentMethod} · {formatDate(sale.soldAt)}
+                    </div>
+                  ))}
                   {part.address && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <MapPin size={14} color="var(--text-muted)" />
@@ -801,6 +859,33 @@ export const ConsignmentManager = ({
                     />
                   </div>
                 </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">E-mail de acesso da loja</label>
+                    <input
+                      type="email"
+                      className="form-input"
+                      placeholder="loja@email.com"
+                      value={partnerLoginEmail}
+                      onChange={(e) => setPartnerLoginEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Senha da loja</label>
+                    <input
+                      type="password"
+                      minLength={6}
+                      className="form-input"
+                      placeholder="Mínimo de 6 caracteres"
+                      value={partnerLoginPassword}
+                      onChange={(e) => setPartnerLoginPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p className="form-label-hint" style={{ marginTop: '-8px', marginBottom: '14px' }}>
+                  A loja entra em /loja e vê só o que foi consignado para ela.
+                </p>
 
                 <div className="form-group">
                   <label className="form-label">Anotações / Condições de Pagamento</label>
