@@ -16,7 +16,7 @@ import {
   Check,
   AlertCircle
 } from 'lucide-react';
-import { formatCurrency, formatWeight, formatTime } from '../../utils/formatters';
+import { formatCurrency, formatPercent, formatWeight, formatTime } from '../../utils/formatters';
 import { calculateConsignment } from '../../utils/calculations';
 import { ImageUploader } from '../Common/ImageUploader';
 
@@ -792,6 +792,42 @@ export const ProductCatalog = ({
                     />
                   </div>
                 </div>
+
+                {(() => {
+                  const cost = Number(formCost) || 0;
+                  const price = Number(formPrice) || 0;
+                  const profit = price - cost;
+                  const markup = cost > 0 ? (profit / cost) * 100 : 0;
+                  const margin = price > 0 ? (profit / price) * 100 : 0;
+                  const costShare = price > 0 ? Math.min(100, Math.max(0, (cost / price) * 100)) : 100;
+                  const profitShare = Math.max(0, 100 - costShare);
+                  return (
+                    <div style={{ marginTop: 8, padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Lucro líquido</div>
+                          <strong style={{ color: profit >= 0 ? 'var(--emerald-profit)' : 'var(--rose-danger)', fontFamily: 'var(--font-mono)' }}>{formatCurrency(profit)}</strong>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Markup sobre o custo</div>
+                          <strong style={{ fontFamily: 'var(--font-mono)' }}>{formatPercent(markup, 0)}</strong>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Margem sobre a venda</div>
+                          <strong style={{ color: 'var(--emerald-profit)', fontFamily: 'var(--font-mono)' }}>{formatPercent(margin, 1)}</strong>
+                        </div>
+                      </div>
+                      <div className="breakdown-bar">
+                        <div className="breakdown-bar-seg" style={{ width: `${costShare}%`, background: 'var(--rose-danger)' }} />
+                        <div className="breakdown-bar-seg" style={{ width: `${profitShare}%`, background: 'var(--emerald-profit)' }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6 }}>
+                        <span>Custo {formatCurrency(cost)}</span>
+                        <span>Venda {formatCurrency(price)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="modal-footer">
