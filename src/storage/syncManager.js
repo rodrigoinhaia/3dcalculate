@@ -98,16 +98,7 @@ class SyncManager {
     try {
       const queueItems = await localDb.syncQueue.toArray();
       const lastSyncedAt = localStorage.getItem('3dcalc_last_synced_at') || null;
-
-      // O espelho do localStorage é o que a tela mostra (e o que o backup exporta).
-      // A migração inicial marca o IndexedDB como "synced" sem nunca enviar esses
-      // registros, então a fila sozinha deixa a nuvem com um catálogo incompleto.
-      const mutations = queueItems.map((item) => ({
-        table: item.table,
-        action: item.action,
-        id: item.id,
-        data: item.data,
-      }));
+      const mutations = latestMutations(queueItems);
 
       const res = await fetch('/api/sync', {
         method: 'POST',
@@ -161,7 +152,7 @@ class SyncManager {
     } finally {
       this.isSyncing = false;
       const pending = await localDb.syncQueue.count().catch(() => 0);
-      if (this.rerun || (finished && pending > 0)) {
+      if (pending > 0) {
         this.rerun = false;
         this.sync();
       }
@@ -237,6 +228,19 @@ class SyncManager {
       localStorage.setItem('3dcalc_partner_sales_v1', JSON.stringify(list));
     }
   }
+}
+
+function latestMutations(queueItems) {
+  const byKey = new Map();
+  for (const item of queueItems) {
+    byKey.set(`${item.table}:${item.id}`, {
+      table: item.table,
+      action: item.action,
+      id: item.id,
+      data: item.data,
+    });
+  }
+  return [...byKey.values()];
 }
 
 function readJson(key, fallback) {
