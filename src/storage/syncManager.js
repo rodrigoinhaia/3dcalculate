@@ -94,12 +94,10 @@ class SyncManager {
       const queueItems = await localDb.syncQueue.toArray();
       const lastSyncedAt = localStorage.getItem('3dcalc_last_synced_at') || null;
 
-      const mutations = queueItems.map(item => ({
-        table: item.table,
-        action: item.action,
-        id: item.id,
-        data: item.data,
-      }));
+      // O espelho do localStorage é o que a tela mostra (e o que o backup exporta).
+      // A migração inicial marca o IndexedDB como "synced" sem nunca enviar esses
+      // registros, então a fila sozinha deixa a nuvem com um catálogo incompleto.
+      const mutations = buildMutations(queueItems, readLocalSnapshot());
 
       const res = await fetch('/api/sync', {
         method: 'POST',
@@ -209,6 +207,67 @@ class SyncManager {
       localStorage.setItem('3dcalc_settings_v1', JSON.stringify(currentSettings));
     }
   }
+}
+
+function readJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function readLocalSnapshot() {
+  return {
+    printers: readJson('3dcalc_printers_v1', []),
+    filaments: readJson('3dcalc_filaments_v1', []),
+    products: readJson('3dcalc_products_v1', []),
+    partners: readJson('3dcalc_partners_v1', []),
+    dispatches: readJson('3dcalc_dispatches_v1', []),
+    settings: readJson('3dcalc_settings_v1', null),
+  };
+}
+
+function buildMutations(queueItems, snapshot) {
+  const byKey = new Map();
+  const put = (table, id, mutation) => byKey.set(`${table}:${id}`, mutation);
+
+  const lists = [
+    ['printers', snapshot.printers],
+    ['filaments', snapshot.filaments],
+    ['products', snapshot.products],
+    ['partners', snapshot.partners],
+    ['dispatches', snapshot.dispatches],
+  ];
+
+  for (const [table, items] of lists) {
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      if (!item?.id) continue;
+      put(table, item.id, { table, action: 'UPSERT', id: item.id, data: item });
+    }
+  }
+
+  if (snapshot.settings && typeof snapshot.settings === 'object') {
+    put('settings', 'global_settings', {
+      table: 'settings',
+      action: 'UPSERT',
+      id: 'global_settings',
+      data: snapshot.settings,
+    });
+  }
+
+  for (const item of queueItems) {
+    put(item.table, item.id, {
+      table: item.table,
+      action: item.action,
+      id: item.id,
+      data: item.data,
+    });
+  }
+
+  return [...byKey.values()];
 }
 
 export const syncManager = new SyncManager();
