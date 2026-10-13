@@ -123,6 +123,7 @@ CREATE INDEX IF NOT EXISTS idx_dispatches_user_sync ON dispatches(user_id, updat
 
 ALTER TABLE partners ADD COLUMN IF NOT EXISTS commission_mode VARCHAR(20) DEFAULT 'included';
 ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS commission_mode VARCHAR(20) DEFAULT 'included';
+ALTER TABLE partner_prices ADD COLUMN IF NOT EXISTS markup_amount NUMERIC(10, 2) DEFAULT 0;
 
 -- Acesso da loja parceira (login separado do vendedor)
 ALTER TABLE partners ADD COLUMN IF NOT EXISTS login_email VARCHAR(255);
@@ -137,6 +138,7 @@ CREATE TABLE IF NOT EXISTS partner_prices (
     product_id VARCHAR(100) NOT NULL,
     price_mode VARCHAR(20) NOT NULL DEFAULT 'seller',
     markup_percent NUMERIC(6, 2) DEFAULT 0,
+    markup_amount NUMERIC(10, 2) DEFAULT 0,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     PRIMARY KEY (user_id, partner_id, product_id)
 );

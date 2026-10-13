@@ -17,6 +17,20 @@ function authHeaders() {
   };
 }
 
+function quoteLine(row, mode, markupPercent, markupAmount) {
+  const seller = Number(row.sellerPrice) || 0;
+  const percent = Number(row.commissionPercent) || 0;
+  const added = row.commissionMode === 'added';
+  let shelf = seller;
+  if (mode === 'markup') shelf = seller * (1 + (Number(markupPercent) || 0) / 100);
+  if (mode === 'amount') shelf = seller + (Number(markupAmount) || 0);
+  shelf = Math.round(shelf * 100) / 100;
+  const maker = added && percent > 0 ? seller / (1 + percent / 100) : seller * (1 - percent / 100);
+  const storeGain = Math.max(0, shelf - maker);
+  const marginPercent = shelf > 0 ? (storeGain / shelf) * 100 : 0;
+  return { shelf, maker, storeGain, marginPercent };
+}
+
 function groupByProduct(items) {
   const map = new Map();
   for (const item of items) {
@@ -104,13 +118,13 @@ export function StoreApp() {
     }
   }
 
-  async function savePrice(row, mode, markupPercent) {
+  async function savePrice(row, mode, markupPercent, markupAmount) {
     setError('');
     try {
     const res = await fetch('/api/partner/prices', {
       method: 'PUT',
       headers: authHeaders(),
-      body: JSON.stringify({ productId: row.productId, mode, markupPercent }),
+      body: JSON.stringify({ productId: row.productId, mode, markupPercent, markupAmount }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Não foi possível salvar o preço.');
@@ -222,6 +236,7 @@ export function StoreApp() {
 
         {screen === 'prices' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <StoreDashboard rows={items} />
             {priceRows.length === 0 && <p style={{ color: '#f8fafc' }}>Nenhum produto consignado nesta loja.</p>}
             {priceRows.map((row) => (
               <PriceCard key={row.productId} row={row} onSave={savePrice} />
@@ -286,13 +301,34 @@ export function StoreApp() {
   );
 }
 
+function StoreDashboard({ rows }) {
+  const summary = rows.reduce((acc, row) => {
+    const quote = quoteLine(row, row.priceMode, row.markupPercent, row.markupAmount);
+    acc.units += Number(row.available) || 0;
+    acc.gain += quote.storeGain * (Number(row.available) || 0);
+    return acc;
+  }, { units: 0, gain: 0 });
+
+  return (
+    <div className="glass-card" style={{ padding: 16, color: '#f8fafc', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+      <div>
+        <div style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>Peças na loja</div>
+        <strong>{summary.units}</strong>
+      </div>
+      <div>
+        <div style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>Sua margem se vender o estoque</div>
+        <strong style={{ color: '#34d399' }}>{formatCurrency(summary.gain)}</strong>
+      </div>
+    </div>
+  );
+}
+
 function PriceCard({ row, onSave }) {
-  const [mode, setMode] = useState(row.priceMode === 'markup' ? 'markup' : 'seller');
+  const [mode, setMode] = useState(row.priceMode === 'amount' || row.priceMode === 'markup' ? row.priceMode : 'seller');
   const [markup, setMarkup] = useState(row.markupPercent || 0);
+  const [amount, setAmount] = useState(row.markupAmount || 0);
   const [saving, setSaving] = useState(false);
-  const shelf = mode === 'markup'
-    ? Math.round(Number(row.sellerPrice) * (1 + (Number(markup) || 0) / 100) * 100) / 100
-    : Number(row.sellerPrice);
+  const quote = quoteLine(row, mode, markup, amount);
 
   return (
     <div className="glass-card store-price-card">
@@ -308,7 +344,10 @@ function PriceCard({ row, onSave }) {
         <input type="radio" checked={mode === 'seller'} onChange={() => setMode('seller')} /> Vender pelo preço do vendedor
       </label>
       <label style={{ display: 'block', marginBottom: 8 }}>
-        <input type="radio" checked={mode === 'markup'} onChange={() => setMode('markup')} /> Acrescentar margem
+        <input type="radio" checked={mode === 'markup'} onChange={() => setMode('markup')} /> Acrescentar margem (%)
+      </label>
+      <label style={{ display: 'block', marginBottom: 8 }}>
+        <input type="radio" checked={mode === 'amount'} onChange={() => setMode('amount')} /> Acrescentar um valor (R$)
       </label>
       {mode === 'markup' && (
         <div className="form-group">
@@ -316,7 +355,15 @@ function PriceCard({ row, onSave }) {
           <input className="form-input" type="number" min="0" max="500" value={markup} onChange={(e) => setMarkup(e.target.value)} />
         </div>
       )}
-      <p style={{ marginBottom: 12 }}>Preço de prateleira: <strong>{formatCurrency(shelf)}</strong></p>
+      {mode === 'amount' && (
+        <div className="form-group">
+          <label className="form-label">Valor a mais (R$)</label>
+          <input className="form-input" type="number" min="0" step="0.5" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+      )}
+      <p style={{ marginBottom: 4, color: '#f8fafc' }}>Preço de prateleira: <strong>{formatCurrency(quote.shelf)}</strong></p>
+      <p style={{ marginBottom: 4, color: '#cbd5e1' }}>Repasse de quem consignou: {formatCurrency(quote.maker)} · não muda com a sua margem</p>
+      <p style={{ marginBottom: 12, color: '#34d399' }}>Sua margem neste produto: {formatCurrency(quote.storeGain)} ({quote.marginPercent.toFixed(0)}%)</p>
       <button
         className="btn btn-primary btn-sm"
         type="button"
@@ -324,7 +371,7 @@ function PriceCard({ row, onSave }) {
         onClick={async () => {
           setSaving(true);
           try {
-            await onSave(row, mode, markup);
+            await onSave(row, mode, markup, amount);
           } finally {
             setSaving(false);
           }

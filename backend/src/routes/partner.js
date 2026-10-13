@@ -3,8 +3,11 @@ import { pool } from '../db/pool.js';
 
 const PAYMENT_METHODS = ['dinheiro', 'pix', 'debito', 'credito'];
 
-function shelfPrice(retail, mode, markupPercent) {
+function shelfPrice(retail, mode, markupPercent, markupAmount = 0) {
   const base = Number(retail) || 0;
+  if (mode === 'amount') {
+    return Math.round((base + (Number(markupAmount) || 0)) * 100) / 100;
+  }
   if (mode === 'markup') {
     const markup = Number(markupPercent) || 0;
     return Math.round(base * (1 + markup / 100) * 100) / 100;
@@ -118,9 +121,12 @@ export async function partnerRoutes(fastify) {
            p.image_url AS "imageUrl",
            p.category,
            d.unit_retail_price AS "sellerPrice",
+           d.commission_percent AS "commissionPercent",
+           COALESCE(d.commission_mode, 'included') AS "commissionMode",
            GREATEST(d.quantity_sent - d.quantity_sold, 0) AS available,
            COALESCE(pp.price_mode, 'seller') AS "priceMode",
-           COALESCE(pp.markup_percent, 0) AS "markupPercent"
+           COALESCE(pp.markup_percent, 0) AS "markupPercent",
+           COALESCE(pp.markup_amount, 0) AS "markupAmount"
          FROM dispatches d
          JOIN products p
            ON p.id = d.product_id AND p.user_id = d.user_id AND p.is_deleted = FALSE
@@ -136,8 +142,10 @@ export async function partnerRoutes(fastify) {
         ...row,
         available: Number(row.available) || 0,
         sellerPrice: Number(row.sellerPrice) || 0,
+        commissionPercent: Number(row.commissionPercent) || 0,
         markupPercent: Number(row.markupPercent) || 0,
-        shelfPrice: shelfPrice(row.sellerPrice, row.priceMode, row.markupPercent),
+        markupAmount: Number(row.markupAmount) || 0,
+        shelfPrice: shelfPrice(row.sellerPrice, row.priceMode, row.markupPercent, row.markupAmount),
       }));
 
       return reply.send({ partnerName: name, items });
@@ -149,12 +157,13 @@ export async function partnerRoutes(fastify) {
 
   fastify.put('/api/partner/prices', { preHandler: requirePartner }, async (request, reply) => {
     const { userId, partnerId } = request.user;
-    const { productId, mode, markupPercent } = request.body || {};
+    const { productId, mode, markupPercent, markupAmount } = request.body || {};
     if (!productId) {
       return reply.code(400).send({ error: 'Informe o produto.' });
     }
-    const priceMode = mode === 'markup' ? 'markup' : 'seller';
+    const priceMode = mode === 'markup' || mode === 'amount' ? mode : 'seller';
     const markup = Math.max(0, Math.min(500, Number(markupPercent) || 0));
+    const amount = Math.max(0, Number(markupAmount) || 0);
 
     try {
       const owned = await pool.query(
@@ -168,13 +177,14 @@ export async function partnerRoutes(fastify) {
       }
 
       await pool.query(
-        `INSERT INTO partner_prices (user_id, partner_id, product_id, price_mode, markup_percent, updated_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())
+        `INSERT INTO partner_prices (user_id, partner_id, product_id, price_mode, markup_percent, markup_amount, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
          ON CONFLICT (user_id, partner_id, product_id) DO UPDATE SET
            price_mode = EXCLUDED.price_mode,
            markup_percent = EXCLUDED.markup_percent,
+           markup_amount = EXCLUDED.markup_amount,
            updated_at = NOW()`,
-        [userId, partnerId, productId, priceMode, markup]
+        [userId, partnerId, productId, priceMode, markup, amount]
       );
       return reply.send({ ok: true });
     } catch (err) {
@@ -208,7 +218,8 @@ export async function partnerRoutes(fastify) {
           `SELECT d.id, d.product_id, d.unit_retail_price,
                   GREATEST(d.quantity_sent - d.quantity_sold, 0) AS available,
                   COALESCE(pp.price_mode, 'seller') AS price_mode,
-                  COALESCE(pp.markup_percent, 0) AS markup_percent
+                  COALESCE(pp.markup_percent, 0) AS markup_percent,
+                  COALESCE(pp.markup_amount, 0) AS markup_amount
            FROM dispatches d
            LEFT JOIN partner_prices pp
              ON pp.user_id = d.user_id AND pp.partner_id = d.partner_id AND pp.product_id = d.product_id
@@ -224,7 +235,7 @@ export async function partnerRoutes(fastify) {
           throw Object.assign(new Error('Quantidade maior que o estoque consignado.'), { statusCode: 409 });
         }
 
-        const unitPrice = shelfPrice(row.unit_retail_price, row.price_mode, row.markup_percent);
+        const unitPrice = shelfPrice(row.unit_retail_price, row.price_mode, row.markup_percent, row.markup_amount);
         const saleId = `sale-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
         await client.query(
