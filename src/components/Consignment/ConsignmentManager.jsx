@@ -16,7 +16,7 @@ import {
   UserCheck,
   Calendar
 } from 'lucide-react';
-import { calculateConsignment } from '../../utils/calculations';
+import { calculateConsignment, splitShelfPrice } from '../../utils/calculations';
 import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
 
 export const ConsignmentManager = ({ 
@@ -53,10 +53,12 @@ export const ConsignmentManager = ({
   const [partnerContact, setPartnerContact] = useState('');
   const [partnerPhone, setPartnerPhone] = useState('');
   const [partnerCommission, setPartnerCommission] = useState(25);
+  const [partnerCommissionMode, setPartnerCommissionMode] = useState('included');
   const [partnerAddress, setPartnerAddress] = useState('');
   const [partnerNotes, setPartnerNotes] = useState('');
   const [partnerLoginEmail, setPartnerLoginEmail] = useState('');
   const [partnerLoginPassword, setPartnerLoginPassword] = useState('');
+  const [editingPartnerId, setEditingPartnerId] = useState(null);
   const [accessPartnerId, setAccessPartnerId] = useState(null);
   const [accessEmail, setAccessEmail] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
@@ -80,12 +82,13 @@ export const ConsignmentManager = ({
       const remaining = Math.max(0, sent - sold);
       const price = Number(d.unitRetailPrice) || 0;
       const comm = Number(d.commissionPercent) || 0;
+      const split = splitShelfPrice(price, comm, d.commissionMode);
 
       totalItemsActive += remaining;
       totalItemsSold += sold;
 
-      const storePerUnit = price * (comm / 100);
-      const makerPerUnit = price - storePerUnit;
+      const storePerUnit = split.storeCommissionAmount;
+      const makerPerUnit = split.makerPayout;
 
       totalMakerPayout += sold * makerPerUnit;
       totalStoreCommission += sold * storePerUnit;
@@ -109,8 +112,9 @@ export const ConsignmentManager = ({
         const remaining = Math.max(0, (Number(d.quantitySent) || 0) - (Number(d.quantitySold) || 0));
         const price = Number(d.unitRetailPrice) || 0;
         const commPct = Number(d.commissionPercent) || 25;
-        const storeCutPerUnit = price * (commPct / 100);
-        const makerPayoutPerUnit = price - storeCutPerUnit;
+        const split = splitShelfPrice(price, commPct, d.commissionMode);
+        const storeCutPerUnit = split.storeCommissionAmount;
+        const makerPayoutPerUnit = split.makerPayout;
         const totalPendingPayout = (Number(d.quantitySold) || 0) * makerPayoutPerUnit;
 
         return {
@@ -157,12 +161,13 @@ export const ConsignmentManager = ({
     e.preventDefault();
     if (!partnerName.trim()) return;
 
-    const newPartner = {
-      id: 'part-' + Date.now(),
+    const partner = {
+      id: editingPartnerId || ('part-' + Date.now()),
       name: partnerName.trim(),
       contactPerson: partnerContact.trim(),
       phone: partnerPhone.trim(),
       commissionPercent: Number(partnerCommission) || 25,
+      commissionMode: partnerCommissionMode === 'added' ? 'added' : 'included',
       address: partnerAddress.trim(),
       notes: partnerNotes.trim(),
       loginEmail: partnerLoginEmail.trim().toLowerCase(),
@@ -170,12 +175,19 @@ export const ConsignmentManager = ({
       createdAt: new Date().toISOString(),
     };
 
-    onAddPartner(newPartner);
+    if (editingPartnerId) {
+      const current = partners.find((item) => item.id === editingPartnerId);
+      onUpdatePartner({ ...current, ...partner, createdAt: current?.createdAt || partner.createdAt });
+    } else {
+      onAddPartner(partner);
+    }
     setIsPartnerModalOpen(false);
+    setEditingPartnerId(null);
     setPartnerName('');
     setPartnerContact('');
     setPartnerPhone('');
     setPartnerCommission(25);
+    setPartnerCommissionMode('included');
     setPartnerAddress('');
     setPartnerNotes('');
     setPartnerLoginEmail('');
@@ -274,7 +286,19 @@ export const ConsignmentManager = ({
           {activeSubTab === 'partners' && (
             <button 
               className="btn btn-primary"
-              onClick={() => setIsPartnerModalOpen(true)}
+              onClick={() => {
+                setEditingPartnerId(null);
+                setPartnerName('');
+                setPartnerContact('');
+                setPartnerPhone('');
+                setPartnerCommission(25);
+                setPartnerCommissionMode('included');
+                setPartnerAddress('');
+                setPartnerNotes('');
+                setPartnerLoginEmail('');
+                setPartnerLoginPassword('');
+                setIsPartnerModalOpen(true);
+              }}
             >
               <Plus size={16} />
               Nova Loja Parceira
@@ -605,7 +629,7 @@ export const ConsignmentManager = ({
                   </div>
 
                   <span className="badge badge-purple" style={{ fontSize: '0.8rem' }}>
-                    {part.commissionPercent}% de Comissão
+                    {part.commissionPercent}% {part.commissionMode === 'added' ? 'por cima do preço' : 'dentro do preço'}
                   </span>
                 </div>
 
@@ -708,6 +732,26 @@ export const ConsignmentManager = ({
                     <strong style={{ color: 'var(--emerald-profit)' }}>{totalSold} un</strong>
                   </div>
 
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => {
+                      setEditingPartnerId(part.id);
+                      setPartnerName(part.name || '');
+                      setPartnerContact(part.contactPerson || '');
+                      setPartnerPhone(part.phone || '');
+                      setPartnerCommission(part.commissionPercent ?? 25);
+                      setPartnerCommissionMode(part.commissionMode === 'added' ? 'added' : 'included');
+                      setPartnerAddress(part.address || '');
+                      setPartnerNotes(part.notes || '');
+                      setPartnerLoginEmail(part.loginEmail || '');
+                      setPartnerLoginPassword('');
+                      setIsPartnerModalOpen(true);
+                    }}
+                  >
+                    Editar
+                  </button>
                   <button 
                     className="btn btn-outline btn-sm btn-danger btn-icon-only"
                     onClick={() => {
@@ -719,6 +763,7 @@ export const ConsignmentManager = ({
                   >
                     <Trash2 size={14} />
                   </button>
+                  </div>
                 </div>
               </div>
             );
@@ -806,7 +851,7 @@ export const ConsignmentManager = ({
         <div className="modal-overlay" onClick={() => setIsPartnerModalOpen(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Cadastrar Ponto de Consignação / Loja</h3>
+              <h3 className="modal-title">{editingPartnerId ? 'Editar loja parceira' : 'Cadastrar Ponto de Consignação / Loja'}</h3>
               <button 
                 className="btn btn-outline btn-sm btn-icon-only" 
                 onClick={() => setIsPartnerModalOpen(false)}
@@ -870,6 +915,14 @@ export const ConsignmentManager = ({
                       />
                       <span className="affix">%</span>
                     </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                      <label>
+                        <input type="radio" name="commissionMode" checked={partnerCommissionMode !== 'added'} onChange={() => setPartnerCommissionMode('included')} /> Dentro do nosso preço
+                      </label>
+                      <label>
+                        <input type="radio" name="commissionMode" checked={partnerCommissionMode === 'added'} onChange={() => setPartnerCommissionMode('added')} /> Por cima do nosso preço
+                      </label>
+                    </div>
                   </div>
 
                   <div className="form-group">
@@ -928,7 +981,7 @@ export const ConsignmentManager = ({
                 </button>
                 <button type="submit" className="btn btn-primary">
                   <CheckCircle size={16} />
-                  Cadastrar Loja
+                  {editingPartnerId ? 'Salvar alterações' : 'Cadastrar Loja'}
                 </button>
               </div>
             </form>

@@ -106,16 +106,17 @@ export const calculatePrintCost = (params) => {
  * @param {number} commissionPercent - Percentual de comissão da loja (%)
  * @param {number} unitCost - Custo unitário de produção (R$)
  */
-export const calculateConsignment = (retailPrice, commissionPercent, unitCost = 0) => {
+export const calculateConsignment = (retailPrice, commissionPercent, unitCost = 0, commissionMode = 'included') => {
   const price = Number(retailPrice) || 0;
   const commPercent = Number(commissionPercent) || 0;
   const cost = Number(unitCost) || 0;
+  const added = commissionMode === 'added';
 
-  // Valor que fica para o lojista
+  // "added": o valor informado é o nosso preço e a comissão entra por cima.
+  // "included": o valor informado já é o preço de vitrine e a comissão sai de dentro.
   const storeCommissionAmount = price * (commPercent / 100);
-
-  // Valor líquido repassado ao criador/maker
-  const makerPayout = price - storeCommissionAmount;
+  const makerPayout = added ? price : price - storeCommissionAmount;
+  const shelfPrice = added ? price + storeCommissionAmount : price;
 
   // Lucro líquido real do criador após descontar o custo
   const netProfit = makerPayout - cost;
@@ -125,6 +126,8 @@ export const calculateConsignment = (retailPrice, commissionPercent, unitCost = 
 
   return {
     retailPrice: price,
+    shelfPrice,
+    commissionMode: added ? 'added' : 'included',
     commissionPercent: commPercent,
     storeCommissionAmount,
     makerPayout,
@@ -132,4 +135,16 @@ export const calculateConsignment = (retailPrice, commissionPercent, unitCost = 
     netProfit,
     netMarginPercent,
   };
+};
+
+/** Reparte um preço de vitrine já gravado, conforme o modo da comissão. */
+export const splitShelfPrice = (shelfPrice, commissionPercent, commissionMode = 'included') => {
+  const shelf = Number(shelfPrice) || 0;
+  const percent = Number(commissionPercent) || 0;
+  if (commissionMode === 'added' && percent > 0) {
+    const makerPayout = shelf / (1 + percent / 100);
+    return { shelfPrice: shelf, makerPayout, storeCommissionAmount: shelf - makerPayout };
+  }
+  const storeCommissionAmount = shelf * (percent / 100);
+  return { shelfPrice: shelf, makerPayout: shelf - storeCommissionAmount, storeCommissionAmount };
 };

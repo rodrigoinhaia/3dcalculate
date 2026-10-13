@@ -62,7 +62,7 @@ export async function syncRoutes(fastify, options) {
       );
 
       const partnersRes = await client.query(
-        `SELECT id, name, contact_person as "contactPerson", phone, commission_percent as "commissionPercent", address, notes, login_email as "loginEmail", updated_at as "updatedAt", is_deleted as "isDeleted" FROM partners WHERE user_id = $1 ${filterClause}`,
+        `SELECT id, name, contact_person as "contactPerson", phone, commission_percent as "commissionPercent", commission_mode as "commissionMode", address, notes, login_email as "loginEmail", updated_at as "updatedAt", is_deleted as "isDeleted" FROM partners WHERE user_id = $1 ${filterClause}`,
         params
       );
 
@@ -73,7 +73,7 @@ export async function syncRoutes(fastify, options) {
       );
 
       const dispatchesRes = await client.query(
-        `SELECT id, partner_id as "partnerId", product_id as "productId", quantity_sent as "quantitySent", quantity_sold as "quantitySold", unit_retail_price as "unitRetailPrice", commission_percent as "commissionPercent", date_sent as "dateSent", notes, updated_at as "updatedAt", is_deleted as "isDeleted" FROM dispatches WHERE user_id = $1 ${filterClause}`,
+        `SELECT id, partner_id as "partnerId", product_id as "productId", quantity_sent as "quantitySent", quantity_sold as "quantitySold", unit_retail_price as "unitRetailPrice", commission_percent as "commissionPercent", commission_mode as "commissionMode", date_sent as "dateSent", notes, updated_at as "updatedAt", is_deleted as "isDeleted" FROM dispatches WHERE user_id = $1 ${filterClause}`,
         params
       );
 
@@ -210,13 +210,14 @@ async function applyMutation(client, userId, table, action, data, id) {
   if (table === 'partners') {
     if (action === 'UPSERT' && data) {
       await client.query(`
-        INSERT INTO partners (id, user_id, name, contact_person, phone, commission_percent, address, notes, login_email, password_hash, updated_at, is_deleted)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), FALSE)
+        INSERT INTO partners (id, user_id, name, contact_person, phone, commission_percent, commission_mode, address, notes, login_email, password_hash, updated_at, is_deleted)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), FALSE)
         ON CONFLICT (id, user_id) DO UPDATE SET
           name = EXCLUDED.name,
           contact_person = EXCLUDED.contact_person,
           phone = EXCLUDED.phone,
           commission_percent = EXCLUDED.commission_percent,
+          commission_mode = EXCLUDED.commission_mode,
           address = EXCLUDED.address,
           notes = EXCLUDED.notes,
           login_email = COALESCE(EXCLUDED.login_email, partners.login_email),
@@ -224,7 +225,7 @@ async function applyMutation(client, userId, table, action, data, id) {
           updated_at = NOW(),
           is_deleted = FALSE
       `, [
-        text(data.id, 100), userId, text(data.name, 255) || 'Parceiro', text(data.contactPerson, 255), text(data.phone, 50), num(data.commissionPercent), data.address ?? null, data.notes ?? null,
+        text(data.id, 100), userId, text(data.name, 255) || 'Parceiro', text(data.contactPerson, 255), text(data.phone, 50), num(data.commissionPercent), data.commissionMode === 'added' ? 'added' : 'included', data.address ?? null, data.notes ?? null,
         data.loginEmail ? String(data.loginEmail).toLowerCase().trim() : null,
         data.loginPassword ? await bcrypt.hash(String(data.loginPassword), 10) : null,
       ]);
@@ -237,8 +238,8 @@ async function applyMutation(client, userId, table, action, data, id) {
     if (action === 'UPSERT' && data) {
       const sent = data.dateSent ? new Date(data.dateSent) : new Date();
       await client.query(`
-        INSERT INTO dispatches (id, user_id, partner_id, product_id, quantity_sent, quantity_sold, unit_retail_price, commission_percent, date_sent, notes, updated_at, is_deleted)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), FALSE)
+        INSERT INTO dispatches (id, user_id, partner_id, product_id, quantity_sent, quantity_sold, unit_retail_price, commission_percent, commission_mode, date_sent, notes, updated_at, is_deleted)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), FALSE)
         ON CONFLICT (id, user_id) DO UPDATE SET
           partner_id = EXCLUDED.partner_id,
           product_id = EXCLUDED.product_id,
@@ -246,6 +247,7 @@ async function applyMutation(client, userId, table, action, data, id) {
           quantity_sold = GREATEST(dispatches.quantity_sold, EXCLUDED.quantity_sold),
           unit_retail_price = EXCLUDED.unit_retail_price,
           commission_percent = EXCLUDED.commission_percent,
+          commission_mode = EXCLUDED.commission_mode,
           date_sent = EXCLUDED.date_sent,
           notes = EXCLUDED.notes,
           updated_at = NOW(),
@@ -253,7 +255,7 @@ async function applyMutation(client, userId, table, action, data, id) {
       `, [
         text(data.id, 100), userId, text(data.partnerId, 100) || '', text(data.productId, 100) || '',
         int(data.quantitySent), int(data.quantitySold),
-        num(data.unitRetailPrice), num(data.commissionPercent),
+        num(data.unitRetailPrice), num(data.commissionPercent), data.commissionMode === 'added' ? 'added' : 'included',
         Number.isNaN(sent.getTime()) ? new Date() : sent, data.notes ?? null
       ]);
     } else if (action === 'DELETE' && id) {

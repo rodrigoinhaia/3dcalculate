@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS partners (
     contact_person VARCHAR(255),
     phone VARCHAR(50),
     commission_percent NUMERIC(5, 2) DEFAULT 20.00,
+    commission_mode VARCHAR(20) DEFAULT 'included',
     address TEXT,
     notes TEXT,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS dispatches (
     quantity_sold INTEGER DEFAULT 0,
     unit_retail_price NUMERIC(10, 2) DEFAULT 0,
     commission_percent NUMERIC(5, 2) DEFAULT 0,
+    commission_mode VARCHAR(20) DEFAULT 'included',
     date_sent TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     notes TEXT,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -118,6 +120,9 @@ CREATE TABLE IF NOT EXISTS dispatches (
     PRIMARY KEY (id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_dispatches_user_sync ON dispatches(user_id, updated_at);
+
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS commission_mode VARCHAR(20) DEFAULT 'included';
+ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS commission_mode VARCHAR(20) DEFAULT 'included';
 
 -- Acesso da loja parceira (login separado do vendedor)
 ALTER TABLE partners ADD COLUMN IF NOT EXISTS login_email VARCHAR(255);
