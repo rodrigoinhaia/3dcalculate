@@ -219,7 +219,7 @@ async function applyMutation(client, userId, table, action, data, id) {
           commission_percent = EXCLUDED.commission_percent,
           address = EXCLUDED.address,
           notes = EXCLUDED.notes,
-          login_email = EXCLUDED.login_email,
+          login_email = COALESCE(EXCLUDED.login_email, partners.login_email),
           password_hash = CASE WHEN EXCLUDED.password_hash IS NULL THEN partners.password_hash ELSE EXCLUDED.password_hash END,
           updated_at = NOW(),
           is_deleted = FALSE
