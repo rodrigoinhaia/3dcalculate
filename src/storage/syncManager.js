@@ -127,12 +127,18 @@ class SyncManager {
         throw new Error(`HTTP ${res.status}`);
       }
 
-      const { serverTimestamp, updates } = await res.json();
+      const { serverTimestamp, updates, failed = [] } = await res.json();
 
-      // Limpa as mutações enviadas com sucesso
       if (queueItems.length > 0) {
-        const queueIds = queueItems.map(q => q.queueId);
-        await localDb.syncQueue.bulkDelete(queueIds);
+        const failedKeys = new Set(failed.map((item) => `${item.table}:${item.id}`));
+        const queueIds = queueItems
+          .filter((item) => !failedKeys.has(`${item.table}:${item.id}`))
+          .map((item) => item.queueId);
+        if (queueIds.length > 0) await localDb.syncQueue.bulkDelete(queueIds);
+      }
+
+      if (failed.length > 0) {
+        throw new Error('Alguns dados não foram gravados na nuvem.');
       }
 
       // Aplica dados novos ou atualizados vindos do servidor
