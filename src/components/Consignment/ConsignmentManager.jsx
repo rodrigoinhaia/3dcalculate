@@ -60,6 +60,7 @@ export const ConsignmentManager = ({
   const [accessPartnerId, setAccessPartnerId] = useState(null);
   const [accessEmail, setAccessEmail] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
+  const [accessMessage, setAccessMessage] = useState('');
 
   // Cálculo do Simulador
   const simResult = useMemo(() => {
@@ -632,18 +633,41 @@ export const ConsignmentManager = ({
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          onUpdatePartner({
-                            ...part,
-                            loginEmail: accessEmail.trim().toLowerCase(),
-                            ...(accessPassword.trim() ? { loginPassword: accessPassword.trim() } : {}),
+                        onClick={async () => {
+                          const email = accessEmail.trim().toLowerCase();
+                          const password = accessPassword.trim();
+                          if (!email || password.length < 6) {
+                            setAccessMessage('Informe o e-mail e uma senha com no mínimo 6 caracteres.');
+                            return;
+                          }
+                          const token = localStorage.getItem('3dcalc_auth_token');
+                          if (!token) {
+                            setAccessMessage('Entre na sua conta antes de salvar o acesso da loja.');
+                            return;
+                          }
+                          setAccessMessage('Enviando acesso da loja...');
+                          const res = await fetch('/api/partners/access', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ partnerId: part.id, name: part.name, loginEmail: email, loginPassword: password }),
                           });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            setAccessMessage(data.error || 'A nuvem não gravou o acesso da loja.');
+                            return;
+                          }
+                          onUpdatePartner({ ...part, loginEmail: email });
                           setAccessPartnerId(null);
                           setAccessPassword('');
+                          setAccessMessage(`Acesso gravado. A loja entra em /loja com ${email}.`);
                         }}
                       >
                         Salvar acesso
                       </button>
+                      {accessMessage && <span>{accessMessage}</span>}
                     </div>
                   ) : (
                     <button

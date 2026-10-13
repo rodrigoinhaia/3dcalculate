@@ -23,7 +23,49 @@ async function requirePartner(request, reply) {
   }
 }
 
+async function requireMaker(request, reply) {
+  try {
+    await request.jwtVerify();
+  } catch {
+    return reply.code(401).send({ error: 'Entre na sua conta para salvar o acesso da loja.' });
+  }
+  if (request.user?.role === 'partner' || !request.user?.userId) {
+    return reply.code(403).send({ error: 'Acesso exclusivo do vendedor.' });
+  }
+}
+
 export async function partnerRoutes(fastify) {
+  fastify.post('/api/partners/access', { preHandler: requireMaker }, async (request, reply) => {
+    const { partnerId, name, loginEmail, loginPassword } = request.body || {};
+    const email = String(loginEmail || '').toLowerCase().trim();
+    const password = String(loginPassword || '');
+    if (!partnerId || !email || password.length < 6) {
+      return reply.code(400).send({ error: 'Informe a loja, o e-mail e uma senha com no mínimo 6 caracteres.' });
+    }
+
+    try {
+      const hash = await bcrypt.hash(password, 10);
+      await pool.query(
+        `INSERT INTO partners (id, user_id, name, login_email, password_hash, updated_at, is_deleted)
+         VALUES ($1, $2, $3, $4, $5, NOW(), FALSE)
+         ON CONFLICT (id, user_id) DO UPDATE SET
+           name = COALESCE(EXCLUDED.name, partners.name),
+           login_email = EXCLUDED.login_email,
+           password_hash = EXCLUDED.password_hash,
+           updated_at = NOW(),
+           is_deleted = FALSE`,
+        [String(partnerId).slice(0, 100), request.user.userId, String(name || 'Loja').slice(0, 255), email, hash]
+      );
+      return reply.send({ ok: true, loginEmail: email });
+    } catch (err) {
+      if (err.code === '23505') {
+        return reply.code(409).send({ error: 'Este e-mail já está em uso por outra loja.' });
+      }
+      fastify.log.error(err);
+      return reply.code(500).send({ error: 'Não foi possível gravar o acesso da loja.' });
+    }
+  });
+
   fastify.post('/api/partner/login', async (request, reply) => {
     const { email, password } = request.body || {};
     if (!email || !password) {
