@@ -248,10 +248,11 @@ function setItemAndSync(key, table, data, defaults) {
       const currentMap = new Map(data.map(item => [item.id, item]));
       const prevMap = new Map(prev.map(item => [item.id, item]));
 
-      // Itens novos ou alterados
       for (const item of data) {
+        const prevItem = prevMap.get(item.id);
+        const changed = !prevItem || JSON.stringify(prevItem) !== JSON.stringify(item);
         await localDb[table].put({ ...item, updatedAt: now, isDeleted: false });
-        await syncManager.enqueue(table, 'UPSERT', item.id, item);
+        if (changed) await syncManager.enqueue(table, 'UPSERT', item.id, item);
       }
 
       // Itens deletados
