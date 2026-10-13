@@ -45,7 +45,8 @@ export const ProductCatalog = ({
   onAddProduct, 
   onUpdateProduct, 
   onDeleteProduct,
-  onDispatchToPartner 
+  onDispatchToPartner,
+  onBulkDispatch
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
@@ -53,6 +54,9 @@ export const ProductCatalog = ({
   // Modais
   const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState({});
+  const [isBulkDispatchOpen, setIsBulkDispatchOpen] = useState(false);
+  const [bulkLines, setBulkLines] = useState([]);
   const [selectedProductForDispatch, setSelectedProductForDispatch] = useState(null);
   const [isPrintSpecModalOpen, setIsPrintSpecModalOpen] = useState(false);
   const [productForSpec, setProductForSpec] = useState(null);
@@ -142,6 +146,61 @@ export const ProductCatalog = ({
     onUpdateProduct({ ...selectedProductForDispatch, stock: remainingStock });
 
     setIsDispatchModalOpen(false);
+  };
+
+  const selectedProducts = products.filter((product) => selectedIds[product.id]);
+
+  const openBulkDispatch = () => {
+    if (selectedProducts.length === 0) return;
+    setDispatchPartnerId(partners[0]?.id || '');
+    setBulkLines(selectedProducts.map((product) => ({
+      productId: product.id,
+      title: product.title,
+      stock: product.stock || 0,
+      quantity: Math.min(product.stock || 1, 1) || 1,
+      price: product.directSalePrice || product.suggestedPrice || 0,
+    })));
+    setIsBulkDispatchOpen(true);
+  };
+
+  const handleConfirmBulkDispatch = (e) => {
+    e.preventDefault();
+    if (!dispatchPartnerId || bulkLines.length === 0) return;
+    const partner = partners.find((item) => item.id === dispatchPartnerId);
+    const now = Date.now();
+    const created = [];
+    const stockUpdates = {};
+
+    bulkLines.forEach((line, index) => {
+      const product = products.find((item) => item.id === line.productId);
+      if (!product) return;
+      const quantity = Math.max(1, Number(line.quantity) || 1);
+      const quote = calculateConsignment(
+        line.price,
+        partner?.commissionPercent || 25,
+        0,
+        partner?.commissionMode || 'included',
+      );
+      const dispatch = {
+        id: `disp-${now}-${index}`,
+        partnerId: dispatchPartnerId,
+        productId: product.id,
+        quantitySent: quantity,
+        quantitySold: 0,
+        unitRetailPrice: quote.shelfPrice,
+        commissionPercent: partner?.commissionPercent || 25,
+        commissionMode: quote.commissionMode,
+        dateSent: new Date().toISOString(),
+        notes: 'Remessa em massa.',
+      };
+      created.push(dispatch);
+      stockUpdates[product.id] = Math.max(0, (product.stock || 0) - quantity);
+      sendDispatchNow(dispatch);
+    });
+
+    if (onBulkDispatch) onBulkDispatch(created, stockUpdates);
+    setSelectedIds({});
+    setIsBulkDispatchOpen(false);
   };
 
   // Salvar formulário de criação/edição
@@ -236,6 +295,15 @@ export const ProductCatalog = ({
           </select>
         </div>
 
+        <button
+          className="btn btn-outline"
+          type="button"
+          disabled={selectedProducts.length === 0}
+          onClick={openBulkDispatch}
+        >
+          <Store size={16} />
+          Consignar selecionados ({selectedProducts.length})
+        </button>
         <button 
           className="btn btn-primary" 
           onClick={() => { resetForm(); setIsNewProductModalOpen(true); }}
@@ -263,6 +331,14 @@ export const ProductCatalog = ({
 
             return (
               <div key={prod.id} className="product-card">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px 0', color: '#e2e8f0', fontSize: '0.8rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!selectedIds[prod.id]}
+                    onChange={() => setSelectedIds((current) => ({ ...current, [prod.id]: !current[prod.id] }))}
+                  />
+                  Selecionar para consignar
+                </label>
                 <div className="product-thumb-container">
                   <img 
                     src={prod.imageUrl} 
@@ -374,6 +450,59 @@ export const ProductCatalog = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {isBulkDispatchOpen && (
+        <div className="modal-overlay" onClick={() => setIsBulkDispatchOpen(false)}>
+          <div className="modal-dialog modal-dialog-large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Consignar produtos selecionados</h3>
+              <button type="button" className="btn btn-outline btn-sm btn-icon-only" onClick={() => setIsBulkDispatchOpen(false)}>✕</button>
+            </div>
+            <form onSubmit={handleConfirmBulkDispatch}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Loja parceira</label>
+                  <select className="form-select" value={dispatchPartnerId} onChange={(e) => setDispatchPartnerId(e.target.value)} required>
+                    {partners.map((partner) => (
+                      <option key={partner.id} value={partner.id}>{partner.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {bulkLines.map((line, index) => (
+                  <div key={line.productId} className="grid-3" style={{ alignItems: 'end', marginBottom: 10 }}>
+                    <strong style={{ color: '#f8fafc' }}>{line.title}</strong>
+                    <div className="form-group">
+                      <label className="form-label">Qtd (estoque {line.stock})</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="1"
+                        value={line.quantity}
+                        onChange={(e) => setBulkLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: e.target.value } : item))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Preço</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={line.price}
+                        onChange={(e) => setBulkLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, price: e.target.value } : item))}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline" onClick={() => setIsBulkDispatchOpen(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Consignar {bulkLines.length} produtos</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

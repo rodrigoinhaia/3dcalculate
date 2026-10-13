@@ -77,6 +77,17 @@ function AppContent() {
     setDispatches(updated);
   };
 
+  const handleBulkDispatch = (newDispatches, stockUpdates) => {
+    const updatedDispatches = [...newDispatches, ...dispatches];
+    db.saveDispatches(updatedDispatches);
+    setDispatches(updatedDispatches);
+    const updatedProducts = products.map((product) => (
+      stockUpdates[product.id] == null ? product : { ...product, stock: stockUpdates[product.id] }
+    ));
+    db.saveProducts(updatedProducts);
+    setProducts(updatedProducts);
+  };
+
   const handleUpdateDispatch = (updatedDispatch) => {
     const updated = dispatches.map(d => d.id === updatedDispatch.id ? updatedDispatch : d);
     db.saveDispatches(updated);
@@ -212,6 +223,7 @@ function AppContent() {
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
             onDispatchToPartner={handleAddDispatch}
+            onBulkDispatch={handleBulkDispatch}
           />
         )}
 
