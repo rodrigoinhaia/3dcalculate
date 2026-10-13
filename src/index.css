@@ -589,6 +589,23 @@ input[type="number"] {
   padding: 10px;
   text-align: left;
   width: 200px;
+  color: #f8fafc;
+  white-space: normal;
+}
+
+.store-product-card strong,
+.store-price-card,
+.store-price-card strong {
+  color: #f8fafc;
+}
+
+.store-price-card {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  max-width: 640px;
+  align-items: start;
 }
 
 .store-product-photo {

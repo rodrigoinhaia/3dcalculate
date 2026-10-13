@@ -131,6 +131,22 @@ export function StoreApp() {
     });
   }
 
+  function changeQty(dispatchId, next) {
+    setCart((current) => {
+      const line = current[dispatchId];
+      if (!line) return current;
+      if (next <= 0) {
+        const copy = { ...current };
+        delete copy[dispatchId];
+        return copy;
+      }
+      return {
+        ...current,
+        [dispatchId]: { ...line, quantity: Math.min(next, line.available) },
+      };
+    });
+  }
+
   const cartLines = Object.values(cart);
   const cartTotal = cartLines.reduce((sum, line) => sum + line.quantity * Number(line.shelfPrice), 0);
 
@@ -205,8 +221,8 @@ export function StoreApp() {
         {notice && <p style={{ color: 'var(--emerald-profit)', marginBottom: 12 }}>{notice}</p>}
 
         {screen === 'prices' && (
-          <div className="grid-2">
-            {priceRows.length === 0 && <p>Nenhum produto consignado nesta loja.</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {priceRows.length === 0 && <p style={{ color: '#f8fafc' }}>Nenhum produto consignado nesta loja.</p>}
             {priceRows.map((row) => (
               <PriceCard key={row.productId} row={row} onSave={savePrice} />
             ))}
@@ -227,19 +243,27 @@ export function StoreApp() {
                   {item.imageUrl
                     ? <img className="store-product-photo" src={item.imageUrl} alt={item.title} />
                     : <div className="store-product-photo" />}
-                  <strong style={{ display: 'block', minHeight: '2.4em' }}>{item.title}</strong>
-                  <div>{formatCurrency(item.shelfPrice)}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{item.available} em estoque</div>
+                  <strong style={{ display: 'block', color: '#f8fafc', lineHeight: 1.3 }}>{item.title}</strong>
+                  <div style={{ color: '#f8fafc', marginTop: 4 }}>{formatCurrency(item.shelfPrice)}</div>
+                  <div style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>{item.available} em estoque</div>
                 </button>
               ))}
             </div>
-            <aside className="glass-card" style={{ padding: 16, alignSelf: 'start' }}>
-              <h2 style={{ fontSize: '1.1rem', marginBottom: 12 }}>Venda</h2>
-              {cartLines.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Toque em um produto para incluir.</p>}
+            <aside className="glass-card" style={{ padding: 16, alignSelf: 'start', color: '#f8fafc' }}>
+              <h2 style={{ fontSize: '1.1rem', marginBottom: 12, color: '#f8fafc' }}>Venda</h2>
+              {cartLines.length === 0 && <p style={{ color: '#cbd5e1' }}>Toque em um produto para incluir.</p>}
               {cartLines.map((line) => (
-                <div key={line.dispatchId} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-                  <span>{line.quantity}× {line.title}</span>
-                  <span>{formatCurrency(line.quantity * line.shelfPrice)}</span>
+                <div key={line.dispatchId} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: '#f8fafc' }}>{line.title}</div>
+                    <div style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>{formatCurrency(line.quantity * line.shelfPrice)}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => changeQty(line.dispatchId, line.quantity - 1)}>−</button>
+                    <span>{line.quantity}</span>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => changeQty(line.dispatchId, line.quantity + 1)} disabled={line.quantity >= line.available}>+</button>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => changeQty(line.dispatchId, 0)}>Remover</button>
+                  </div>
                 </div>
               ))}
               <div style={{ fontWeight: 700, margin: '12px 0' }}>Total {formatCurrency(cartTotal)}</div>
@@ -271,9 +295,13 @@ function PriceCard({ row, onSave }) {
     : Number(row.sellerPrice);
 
   return (
-    <div className="glass-card" style={{ padding: 16 }}>
-      <strong>{row.title}</strong>
-      <p style={{ color: 'var(--text-muted)', margin: '8px 0' }}>
+    <div className="glass-card store-price-card">
+      {row.imageUrl
+        ? <img className="store-product-photo" src={row.imageUrl} alt={row.title} />
+        : <div className="store-product-photo" />}
+      <div>
+      <strong style={{ color: '#f8fafc' }}>{row.title}</strong>
+      <p style={{ color: '#cbd5e1', margin: '8px 0' }}>
         Preço do vendedor: {formatCurrency(row.sellerPrice)} · {row.available} un
       </p>
       <label style={{ display: 'block', marginBottom: 6 }}>
@@ -304,6 +332,7 @@ function PriceCard({ row, onSave }) {
       >
         Salvar preço
       </button>
+      </div>
     </div>
   );
 }
