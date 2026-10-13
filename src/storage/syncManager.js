@@ -54,6 +54,9 @@ class SyncManager {
   // Enfileira uma mutação offline
   async enqueue(table, action, id, data = null) {
     try {
+      const previous = await localDb.syncQueue.where('id').equals(id).toArray();
+      const stale = previous.filter((item) => item.table === table).map((item) => item.queueId);
+      if (stale.length > 0) await localDb.syncQueue.bulkDelete(stale);
       await localDb.syncQueue.add({
         table,
         action,
@@ -98,7 +101,7 @@ class SyncManager {
     try {
       const queueItems = await localDb.syncQueue.toArray();
       const lastSyncedAt = localStorage.getItem('3dcalc_last_synced_at') || null;
-      const mutations = latestMutations(queueItems);
+      const mutations = latestMutations(queueItems).map(slimMutation);
 
       const res = await fetch('/api/sync', {
         method: 'POST',
@@ -106,6 +109,7 @@ class SyncManager {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        signal: AbortSignal.timeout(20000),
         body: JSON.stringify({
           lastSyncedAt,
           mutations,
@@ -228,6 +232,13 @@ class SyncManager {
       localStorage.setItem('3dcalc_partner_sales_v1', JSON.stringify(list));
     }
   }
+}
+
+function slimMutation(mutation) {
+  if (mutation.table !== 'products' || !mutation.data?.imageUrl) return mutation;
+  const imageUrl = String(mutation.data.imageUrl);
+  if (!imageUrl.startsWith('data:') || imageUrl.length < 120000) return mutation;
+  return { ...mutation, data: { ...mutation.data, imageUrl: '' } };
 }
 
 function latestMutations(queueItems) {
