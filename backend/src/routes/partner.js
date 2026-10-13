@@ -3,6 +3,15 @@ import { pool } from '../db/pool.js';
 
 const PAYMENT_METHODS = ['dinheiro', 'pix', 'debito', 'credito'];
 
+function agreedPrice(retail, commissionMode, commissionPercent) {
+  const base = Number(retail) || 0;
+  const percent = Number(commissionPercent) || 0;
+  if (commissionMode === 'added' && percent > 0) {
+    return Math.round(base * (1 + percent / 100) * 100) / 100;
+  }
+  return Math.round(base * 100) / 100;
+}
+
 function shelfPrice(retail, mode, markupPercent, markupAmount = 0) {
   const base = Number(retail) || 0;
   if (mode === 'amount') {
@@ -120,9 +129,9 @@ export async function partnerRoutes(fastify) {
            p.title,
            p.image_url AS "imageUrl",
            p.category,
-           d.unit_retail_price AS "sellerPrice",
-           d.commission_percent AS "commissionPercent",
-           COALESCE(d.commission_mode, 'included') AS "commissionMode",
+           d.unit_retail_price AS "makerPrice",
+           COALESCE(part.commission_percent, d.commission_percent) AS "commissionPercent",
+           COALESCE(part.commission_mode, d.commission_mode, 'included') AS "commissionMode",
            GREATEST(d.quantity_sent - d.quantity_sold, 0) AS available,
            COALESCE(pp.price_mode, 'seller') AS "priceMode",
            COALESCE(pp.markup_percent, 0) AS "markupPercent",
@@ -130,6 +139,8 @@ export async function partnerRoutes(fastify) {
          FROM dispatches d
          JOIN products p
            ON p.id = d.product_id AND p.user_id = d.user_id AND p.is_deleted = FALSE
+         LEFT JOIN partners part
+           ON part.id = d.partner_id AND part.user_id = d.user_id AND part.is_deleted = FALSE
          LEFT JOIN partner_prices pp
            ON pp.user_id = d.user_id AND pp.partner_id = d.partner_id AND pp.product_id = d.product_id
          WHERE d.user_id = $1 AND d.partner_id = $2 AND d.is_deleted = FALSE
@@ -141,11 +152,17 @@ export async function partnerRoutes(fastify) {
       const items = result.rows.map((row) => ({
         ...row,
         available: Number(row.available) || 0,
-        sellerPrice: Number(row.sellerPrice) || 0,
+        makerPrice: Number(row.makerPrice) || 0,
         commissionPercent: Number(row.commissionPercent) || 0,
+        sellerPrice: agreedPrice(row.makerPrice, row.commissionMode, row.commissionPercent),
         markupPercent: Number(row.markupPercent) || 0,
         markupAmount: Number(row.markupAmount) || 0,
-        shelfPrice: shelfPrice(row.sellerPrice, row.priceMode, row.markupPercent, row.markupAmount),
+        shelfPrice: shelfPrice(
+          agreedPrice(row.makerPrice, row.commissionMode, row.commissionPercent),
+          row.priceMode,
+          row.markupPercent,
+          row.markupAmount,
+        ),
       }));
 
       return reply.send({ partnerName: name, items });
@@ -217,14 +234,18 @@ export async function partnerRoutes(fastify) {
         const rowRes = await client.query(
           `SELECT d.id, d.product_id, d.unit_retail_price,
                   GREATEST(d.quantity_sent - d.quantity_sold, 0) AS available,
+                  COALESCE(part.commission_percent, d.commission_percent) AS commission_percent,
+                  COALESCE(part.commission_mode, d.commission_mode, 'included') AS commission_mode,
                   COALESCE(pp.price_mode, 'seller') AS price_mode,
                   COALESCE(pp.markup_percent, 0) AS markup_percent,
                   COALESCE(pp.markup_amount, 0) AS markup_amount
            FROM dispatches d
+           LEFT JOIN partners part
+             ON part.id = d.partner_id AND part.user_id = d.user_id AND part.is_deleted = FALSE
            LEFT JOIN partner_prices pp
              ON pp.user_id = d.user_id AND pp.partner_id = d.partner_id AND pp.product_id = d.product_id
            WHERE d.id = $1 AND d.user_id = $2 AND d.partner_id = $3 AND d.is_deleted = FALSE
-           FOR UPDATE`,
+           FOR UPDATE OF d`,
           [item.dispatchId, userId, partnerId]
         );
         const row = rowRes.rows[0];
@@ -235,7 +256,12 @@ export async function partnerRoutes(fastify) {
           throw Object.assign(new Error('Quantidade maior que o estoque consignado.'), { statusCode: 409 });
         }
 
-        const unitPrice = shelfPrice(row.unit_retail_price, row.price_mode, row.markup_percent, row.markup_amount);
+        const unitPrice = shelfPrice(
+          agreedPrice(row.unit_retail_price, row.commission_mode, row.commission_percent),
+          row.price_mode,
+          row.markup_percent,
+          row.markup_amount,
+        );
         const saleId = `sale-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
         await client.query(
