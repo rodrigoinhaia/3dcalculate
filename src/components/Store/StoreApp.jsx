@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import QRCode from 'qrcode';
 import { formatCurrency } from '../../utils/formatters';
+import { buildPixPayload } from '../../utils/pix';
 
 const TOKEN_KEY = '3dcalc_partner_token';
 const PARTNER_KEY = '3dcalc_partner_profile';
@@ -62,6 +64,8 @@ export function StoreApp() {
   const [payment, setPayment] = useState('pix');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [pixInfo, setPixInfo] = useState(null);
+  const [pixCharge, setPixCharge] = useState(null);
 
   const priceRows = useMemo(() => groupByProduct(items), [items]);
 
@@ -74,9 +78,10 @@ export function StoreApp() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Falha ao carregar o catálogo.');
     setItems(data.items || []);
-    if (data.partnerName) {
-      const next = { ...(partner || {}), name: data.partnerName };
+    if (data.partnerName || data.pix) {
+      const next = { ...(partner || {}), name: data.partnerName || partner?.name, pix: data.pix || partner?.pix };
       setPartner(next);
+      setPixInfo(data.pix || null);
       localStorage.setItem(PARTNER_KEY, JSON.stringify(next));
     }
   }
@@ -163,6 +168,29 @@ export function StoreApp() {
 
   const cartLines = Object.values(cart);
   const cartTotal = cartLines.reduce((sum, line) => sum + line.quantity * Number(line.shelfPrice), 0);
+
+  async function generatePix() {
+    setError('');
+    const pix = pixInfo || partner?.pix;
+    if (!pix?.key) {
+      setError('A chave Pix ainda não foi cadastrada nesta loja.');
+      return;
+    }
+    try {
+      const txid = `L${Date.now().toString(36)}`.toUpperCase();
+      const payload = buildPixPayload({
+        key: pix.key,
+        name: pix.name || partner?.name,
+        city: pix.city || 'BRASIL',
+        amount: cartTotal,
+        txid,
+      });
+      const image = await QRCode.toDataURL(payload, { width: 280, margin: 1 });
+      setPixCharge({ payload, image, amount: cartTotal });
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   async function checkout() {
     if (cartLines.length === 0) return;
@@ -290,6 +318,25 @@ export function StoreApp() {
                   ))}
                 </select>
               </div>
+              {payment === 'pix' && (
+                <button className="btn btn-primary" type="button" disabled={cartLines.length === 0} onClick={generatePix} style={{ marginBottom: 8 }}>
+                  Gerar pagamento Pix
+                </button>
+              )}
+              {pixCharge && payment === 'pix' && (
+                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <img src={pixCharge.image} alt="QR Code Pix" width="220" height="220" style={{ background: '#fff', borderRadius: 8 }} />
+                  <div style={{ color: '#f8fafc', fontWeight: 700, marginTop: 8 }}>{formatCurrency(pixCharge.amount)}</div>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    style={{ marginTop: 8 }}
+                    onClick={() => navigator.clipboard.writeText(pixCharge.payload)}
+                  >
+                    Copiar Pix copia e cola
+                  </button>
+                </div>
+              )}
               <button className="btn btn-success" type="button" disabled={busy || cartLines.length === 0} onClick={checkout}>
                 Registrar venda
               </button>

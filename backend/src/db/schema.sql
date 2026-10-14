@@ -126,6 +126,8 @@ ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS commission_mode VARCHAR(20) DEFA
 ALTER TABLE partner_prices ADD COLUMN IF NOT EXISTS markup_amount NUMERIC(10, 2) DEFAULT 0;
 
 -- Acesso da loja parceira (login separado do vendedor)
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS pix_key VARCHAR(140);
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS pix_city VARCHAR(30);
 ALTER TABLE partners ADD COLUMN IF NOT EXISTS login_email VARCHAR(255);
 ALTER TABLE partners ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_partners_login_email
