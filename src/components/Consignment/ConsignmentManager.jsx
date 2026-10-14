@@ -69,6 +69,8 @@ export const ConsignmentManager = ({
   const [partnerCommissionMode, setPartnerCommissionMode] = useState('included');
   const [partnerAddress, setPartnerAddress] = useState('');
   const [partnerNotes, setPartnerNotes] = useState('');
+  const [partnerPixKey, setPartnerPixKey] = useState('');
+  const [partnerPixCity, setPartnerPixCity] = useState('');
   const [partnerLoginEmail, setPartnerLoginEmail] = useState('');
   const [partnerLoginPassword, setPartnerLoginPassword] = useState('');
   const [editingPartnerId, setEditingPartnerId] = useState(null);
@@ -199,6 +201,8 @@ export const ConsignmentManager = ({
       commissionMode: partnerCommissionMode === 'added' ? 'added' : 'included',
       address: partnerAddress.trim(),
       notes: partnerNotes.trim(),
+      pixKey: partnerPixKey.trim(),
+      pixCity: partnerPixCity.trim(),
       loginEmail: partnerLoginEmail.trim().toLowerCase(),
       ...(partnerLoginPassword.trim() ? { loginPassword: partnerLoginPassword.trim() } : {}),
       createdAt: new Date().toISOString(),
@@ -219,6 +223,8 @@ export const ConsignmentManager = ({
     setPartnerCommissionMode('included');
     setPartnerAddress('');
     setPartnerNotes('');
+    setPartnerPixKey('');
+    setPartnerPixCity('');
     setPartnerLoginEmail('');
     setPartnerLoginPassword('');
   };
@@ -788,6 +794,8 @@ export const ConsignmentManager = ({
                       setPartnerCommissionMode(part.commissionMode === 'added' ? 'added' : 'included');
                       setPartnerAddress(part.address || '');
                       setPartnerNotes(part.notes || '');
+                      setPartnerPixKey(part.pixKey || '');
+                      setPartnerPixCity(part.pixCity || '');
                       setPartnerLoginEmail(part.loginEmail || '');
                       setPartnerLoginPassword('');
                       setIsPartnerModalOpen(true);
@@ -976,6 +984,30 @@ export const ConsignmentManager = ({
                       placeholder="Rua, Número, Bairro ou Shopping" 
                       value={partnerAddress} 
                       onChange={(e) => setPartnerAddress(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Chave Pix da loja</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="CPF, CNPJ, e-mail, telefone ou aleatória"
+                      value={partnerPixKey}
+                      onChange={(e) => setPartnerPixKey(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Cidade do recebedor</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ex: Porto Alegre"
+                      maxLength={30}
+                      value={partnerPixCity}
+                      onChange={(e) => setPartnerPixCity(e.target.value)}
                     />
                   </div>
                 </div>

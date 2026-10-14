@@ -62,7 +62,7 @@ export async function syncRoutes(fastify, options) {
       );
 
       const partnersRes = await client.query(
-        `SELECT id, name, contact_person as "contactPerson", phone, commission_percent as "commissionPercent", commission_mode as "commissionMode", address, notes, login_email as "loginEmail", updated_at as "updatedAt", is_deleted as "isDeleted" FROM partners WHERE user_id = $1 ${filterClause}`,
+        `SELECT id, name, contact_person as "contactPerson", phone, commission_percent as "commissionPercent", commission_mode as "commissionMode", address, notes, pix_key as "pixKey", pix_city as "pixCity", login_email as "loginEmail", updated_at as "updatedAt", is_deleted as "isDeleted" FROM partners WHERE user_id = $1 ${filterClause}`,
         params
       );
 
@@ -220,8 +220,8 @@ async function applyMutation(client, userId, table, action, data, id) {
   if (table === 'partners') {
     if (action === 'UPSERT' && data) {
       await client.query(`
-        INSERT INTO partners (id, user_id, name, contact_person, phone, commission_percent, commission_mode, address, notes, login_email, password_hash, updated_at, is_deleted)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), FALSE)
+        INSERT INTO partners (id, user_id, name, contact_person, phone, commission_percent, commission_mode, address, notes, pix_key, pix_city, login_email, password_hash, updated_at, is_deleted)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), FALSE)
         ON CONFLICT (id, user_id) DO UPDATE SET
           name = EXCLUDED.name,
           contact_person = EXCLUDED.contact_person,
@@ -230,12 +230,15 @@ async function applyMutation(client, userId, table, action, data, id) {
           commission_mode = EXCLUDED.commission_mode,
           address = EXCLUDED.address,
           notes = EXCLUDED.notes,
+          pix_key = EXCLUDED.pix_key,
+          pix_city = EXCLUDED.pix_city,
           login_email = COALESCE(EXCLUDED.login_email, partners.login_email),
           password_hash = CASE WHEN EXCLUDED.password_hash IS NULL THEN partners.password_hash ELSE EXCLUDED.password_hash END,
           updated_at = NOW(),
           is_deleted = FALSE
       `, [
         text(data.id, 100), userId, text(data.name, 255) || 'Parceiro', text(data.contactPerson, 255), text(data.phone, 50), num(data.commissionPercent), data.commissionMode === 'added' ? 'added' : 'included', data.address ?? null, data.notes ?? null,
+        text(data.pixKey, 140), text(data.pixCity, 30),
         data.loginEmail ? String(data.loginEmail).toLowerCase().trim() : null,
         data.loginPassword ? await bcrypt.hash(String(data.loginPassword), 10) : null,
       ]);

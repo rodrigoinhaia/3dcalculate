@@ -165,7 +165,18 @@ export async function partnerRoutes(fastify) {
         ),
       }));
 
-      return reply.send({ partnerName: name, items });
+      const pixRes = await pool.query(
+        `SELECT name, pix_key AS "pixKey", pix_city AS "pixCity"
+         FROM partners WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE LIMIT 1`,
+        [partnerId, userId]
+      );
+      const pix = pixRes.rows[0] || {};
+
+      return reply.send({
+        partnerName: name,
+        pix: { key: pix.pixKey || '', city: pix.pixCity || '', name: pix.name || name },
+        items,
+      });
     } catch (err) {
       fastify.log.error(err);
       return reply.code(500).send({ error: 'Não foi possível carregar o catálogo.' });
