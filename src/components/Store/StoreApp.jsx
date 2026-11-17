@@ -177,15 +177,13 @@ export function StoreApp() {
       return;
     }
     try {
-      const txid = `L${Date.now().toString(36)}`.toUpperCase();
       const payload = buildPixPayload({
         key: pix.key,
         name: pix.name || partner?.name,
         city: pix.city || 'BRASIL',
         amount: cartTotal,
-        txid,
       });
-      const image = await QRCode.toDataURL(payload, { width: 280, margin: 1 });
+      const image = await QRCode.toDataURL(payload, { width: 320, margin: 2, errorCorrectionLevel: 'M' });
       setPixCharge({ payload, image, amount: cartTotal });
     } catch (err) {
       setError(err.message);
